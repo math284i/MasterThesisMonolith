@@ -17,14 +17,29 @@
 @if (_isInitialized)
 {
     <h3>Logged in as @clientId</h3>
-    <h4>Select stocks to stream prices</h4>
+    <h5>Select stocks to stream prices</h5>
     @foreach (var stock in stocks)
     {
         <div>
             <label>@stock.InstrumentId</label>
-            <input type="checkbox" @bind="stock.EnableLivePrices"/>
+            <input type="checkbox" @bind="stock.EnableLivePrices" @bind:after="UpdateSelectedStocks"/>
         </div>
     }
+    <h5>Selected stocks</h5>
+    @if (selectedStocks.Any())
+    {
+        <ul>
+            @foreach (var stock in selectedStocks)
+            {
+                <li>@stock.InstrumentId - Price: @stock.Price.ToString("C")</li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p>No stocks selected.</p>
+    }
+    <button @onclick="SimulatePriceChange">Simulate Price Change</button>
 }else
 {
     <p>Please login first</p>
@@ -34,6 +49,7 @@
     private List<StockOptions> stocks = new();
     private bool _isInitialized = false;
     private bool _isAuthenticated = false;
+    private List<StockOptions> selectedStocks = new();
     private string clientId = "";
 
     private async Task Login()
@@ -42,5 +58,15 @@
         stocks = ClientService.GetStockOptions();
         await Logger.LogAsync("Started session for user: " + clientId);
         _isInitialized = true;
+    }
+    
+    private void UpdateSelectedStocks()
+    {
+        selectedStocks = stocks.Where(s => s.EnableLivePrices).ToList();
+    }
+
+    private void SimulatePriceChange()
+    {
+        
     }
 }
