@@ -5,52 +5,86 @@
 @inject JsLogger Logger
 @inject IClient ClientService
 @rendermode InteractiveServer
-<h3>Client</h3>
 
-@if (!_isAuthenticated)
-{
-    <p>Indtast kode for at fortsætte:</p>
-    <input type="password" @bind="clientId" />
-    <button @onclick="Login">Login</button>
-}
+<link rel="stylesheet" href="Styles/ClientStyle.css">
 
-@if (_isInitialized)
-{
-    <h3>Logged in as @clientId</h3>
-    <h5>Select stocks to stream prices</h5>
-    @foreach (var stock in stocks)
-    {
-        <div>
-            <label>@stock.InstrumentId</label>
-            <input type="checkbox" @bind="stock.EnableLivePrices" @bind:after="UpdateSelectedStocks"/>
-        </div>
-    }
-    <h5>Selected stocks</h5>
-    @if (selectedStocks.Any())
-    {
-        <ul>
-            @foreach (var stock in selectedStocks)
-            {
-                <li>@stock.InstrumentId - Price: @stock.Price.ToString("C")</li>
-            }
-        </ul>
-    }
-    else
-    {
-        <p>No stocks selected.</p>
-    }
-    <button @onclick="SimulatePriceChange">Simulate Price Change</button>
-}else
-{
-    <p>Please login first</p>
-}
+<div class="container">
+    <header class="header">
+        <h1>Stock Trading Dashboard</h1>
+    </header>
+    
+    <div class="card">
+
+        @if (!_isAuthenticated)
+        {
+            <div class="auth-container">
+                <p>Enter your access code to continue:</p>
+                <div class="input-group">
+                    <input type="password" class="input-field" @bind="clientId" />
+                </div>
+                <button class="login-btn" @onclick="Login">
+                    <span class="material-icons">Login</span>
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="content">
+                <h3>Logged in as <span class="highlight">@clientId</span></h3>
+                <div class="stocks-container">
+                    <!-- Stock Selection -->
+                    <div class="stock-selection">
+                        <h4 class="section-title">Select stocks to stream prices</h4>
+                        <div class="stock-grid">
+                            @foreach (var stock in stocks)
+                            {
+                                <div class="stock-item">
+                                    <input type="checkbox" class="stock-checkbox" @bind="stock.EnableLivePrices" @bind:after="UpdateSelectedStocks" />
+                                    <label class="stock-label">@stock.InstrumentId</label>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Selected Stocks -->
+                    <div class="selected-stocks">
+                        <h4 class="section-title">Selected Stocks</h4>
+
+                        @if (selectedStocks.Any())
+                        {
+                            <div class="stock-list">
+                                <ul>
+                                    @foreach (var stock in selectedStocks)
+                                    {
+                                        <li class="selected-stock-item">
+                                            <span class="stock-name">@stock.InstrumentId</span>
+                                            <span class="stock-price">@stock.Price.ToString("C")</span>
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="no-stocks">No stocks selected.</p>
+                        }
+                    </div>
+                </div>
+                <button class="simulate-btn" @onclick="SimulatePriceChange">
+                    <span class="material-icons">Simulate Price Change</span>
+                </button>
+            </div>
+        }
+    </div>
+</div>
 
 @code {
-    private List<StockOptions> stocks = new();
+    private HashSet<StockOptions> stocks = new();
     private bool _isInitialized = false;
     private bool _isAuthenticated = false;
-    private List<StockOptions> selectedStocks = new();
+    private HashSet<StockOptions> selectedStocks = new();
     private string clientId = "";
+    private float counter = 0.0f;
 
     private async Task Login()
     {
@@ -62,11 +96,23 @@
     
     private void UpdateSelectedStocks()
     {
-        selectedStocks = stocks.Where(s => s.EnableLivePrices).ToList();
+        selectedStocks = stocks.Where(s => s.EnableLivePrices).ToHashSet();
+    }
+
+    private void UpdatePrice(string localClientId, string instrumentId, float price)
+    {
+        if (localClientId != clientId) return;
+        var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == instrumentId);
+
+        if (matchingStock != null)
+        {
+            matchingStock.Price = price;
+        }
     }
 
     private void SimulatePriceChange()
     {
-        
+        counter++;
+        UpdatePrice(clientId, "GME", counter);
     }
 }
