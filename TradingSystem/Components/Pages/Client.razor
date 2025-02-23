@@ -4,6 +4,7 @@
 @using TradingSystem.Setup
 @inject JsLogger Logger
 @inject IClient ClientService
+@inject IPricerEngineClient Engine
 @rendermode InteractiveServer
 
 <link rel="stylesheet" href="Styles/ClientStyle.css">
@@ -39,7 +40,7 @@
                             @foreach (var stock in stocks)
                             {
                                 <div class="stock-item">
-                                    <input type="checkbox" class="stock-checkbox" @bind="stock.EnableLivePrices" @bind:after="UpdateSelectedStocks" />
+                                    <input type="checkbox" class="stock-checkbox" @bind="stock.EnableLivePrices" @bind:after="() => UpdateSelectedStocks(stock)" />
                                     <label class="stock-label">@stock.InstrumentId</label>
                                 </div>
                             }
@@ -94,8 +95,10 @@
         _isInitialized = true;
     }
     
-    private void UpdateSelectedStocks()
+    private void UpdateSelectedStocks(StockOptions stock)
     {
+        Engine.Stream(clientId, stock.InstrumentId, stock.EnableLivePrices);   
+        // Im not sure if its smarter / more efficient, to just remove / add based on parameter
         selectedStocks = stocks.Where(s => s.EnableLivePrices).ToHashSet();
     }
 
