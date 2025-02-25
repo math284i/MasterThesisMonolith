@@ -11,6 +11,7 @@ public interface IClient
 public class Client(IOptions<TradingOptions> tradingOptions) : IClient
 {
     private readonly TradingOptions _tradingOptions = tradingOptions.Value;
+    public const string CLIENT_STREAM_PRICE = "client-stream-price";
 
     public HashSet<StockOptions> GetStockOptions()
     {
