@@ -17,9 +17,9 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection SetupTradingSystem(this IServiceCollection services)
     {
+        services.AddSingleton<IMessageBus, MessageBus>();
         services.AddSingleton<IClient, Client>();
         services.AddSingleton<IPricerEngineClient, PricerEngine>();
         return services;
     }
-    
 }
