@@ -16,6 +16,7 @@ public interface IPricerEngineInternal
 public class PricerEngine(IClient client) : IPricerEngineClient, IPricerEngineInternal
 {
     private readonly Dictionary<string, HashSet<StockOptions>> _clientsDict = new();
+    private readonly Dictionary<string, Action<string, string, int>> _clientsFunctions = new();
     private readonly HashSet<StockOptions> _stocks = client.GetStockOptions();
 
     public void Stream(string clientId, string instrumentId, bool enableLivePrices)

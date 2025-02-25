@@ -59,7 +59,7 @@
                                     {
                                         <li class="selected-stock-item">
                                             <span class="stock-name">@stock.InstrumentId</span>
-                                            <span class="stock-price">@stock.Price.ToString("C")</span>
+                                            <span class="stock-price">@(stock.Price == 0 ? "Price is yet to come" : stock.Price.ToString("C"))</span>
                                         </li>
                                     }
                                 </ul>
