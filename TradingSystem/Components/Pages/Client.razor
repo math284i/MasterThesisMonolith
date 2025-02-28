@@ -119,7 +119,7 @@
         selectedStocks = stocks.Where(s => s.EnableLivePrices).ToList();
     }
 
-    private async Task TmpUpdatePrice(StockOptions stock)
+    private async void TmpUpdatePrice(StockOptions stock)
     {
         var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == stock.InstrumentId);
 
