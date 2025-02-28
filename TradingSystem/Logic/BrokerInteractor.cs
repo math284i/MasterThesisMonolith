@@ -2,10 +2,14 @@ using TradingSystem.Data;
 
 namespace TradingSystem.Logic;
 
-
-public class BrokerInteractor
+public interface IBrokerInteractor
 {
-    public const string REQUEST_MARKET_PRICE = "brokerInteractor-requestMarketPrice";
+    
+}
+
+public class BrokerInteractor : IBrokerInteractor
+{
+    public const string REQUEST_MARKET_PRICE = "pricerEngine-requestMarketPrice";
 
     public BrokerInteractor(IMessageBus messageBus)
     {
@@ -16,7 +20,7 @@ public class BrokerInteractor
             //Calculate a best market price
             Random rand = new Random();
             float marketPrice = 1.0f * rand.Next(1, 11); //Number return is 1.0f to and including 10.f
-            messageBus.Publish<float>("pricerEngine-responseMarketPrice", marketPrice);
+            //messageBus.Publish<float>(PricerEngine.SUBSCRIBE_TO_MARKET_PRICE, marketPrice);
             Console.WriteLine("Published price for stock " + stock.InstrumentId + " on the bus.");
         });
     }

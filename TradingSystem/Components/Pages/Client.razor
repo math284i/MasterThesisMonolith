@@ -1,10 +1,11 @@
 @page "/"
 @using TradingSystem.Data
+@using TradingSystem.DTO
 @using TradingSystem.Logic
 @using TradingSystem.Setup
 @inject JsLogger Logger
 @inject IClient ClientService
-@inject IPricerEngineClient Engine
+@inject IMessageBus MessageBus
 @rendermode InteractiveServer
 
 <link rel="stylesheet" href="Styles/ClientStyle.css">
@@ -90,14 +91,23 @@
     private async Task Login()
     {
         _isAuthenticated = true;
-        stocks = ClientService.GetStockOptions();
+        stocks = ClientService.GetStockOptions<HashSet<StockOptions>>(stockOptions =>
+        {
+            stocks = stockOptions;
+        });
         await Logger.LogAsync("Started session for user: " + clientId);
         _isInitialized = true;
     }
     
     private void UpdateSelectedStocks(StockOptions stock)
     {
-        Engine.Stream(clientId, stock.InstrumentId, stock.EnableLivePrices);   
+        var info = new StreamInformation
+        {
+            ClientId = clientId,
+            EnableLivePrices = stock.EnableLivePrices,
+            InstrumentId = stock.InstrumentId
+        };
+        
         // Im not sure if its smarter / more efficient, to just remove / add based on parameter
         selectedStocks = stocks.Where(s => s.EnableLivePrices).ToHashSet();
     }
