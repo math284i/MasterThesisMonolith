@@ -17,7 +17,7 @@ public class PricerEngine : IPricerEngine
     private readonly HashSet<StockOptions> _referencePrices;
     private readonly IMessageBus _messageBus;
 
-    public PricerEngine(IOptions<TradingOptions> stocksOptions, IMessageBus messageBus)
+    public PricerEngine(IOptions<TradingOptions> stocksOptions, IMessageBus messageBus, IMarketDataGateway tmp)
     {
         Console.WriteLine("Pricer engine starting up...");
         _referencePrices = new HashSet<StockOptions>();
@@ -36,12 +36,13 @@ public class PricerEngine : IPricerEngine
             _messageBus.Subscribe<StockOptions>(stockTopic, UpdatePrice);
         }
         _messageBus.Publish("allInstruments", _referencePrices);
-        
+        tmp.Start(); //TODO REMOVE!!!!!
     }
 
     private void UpdatePrice(StockOptions stock)
     {
         //Reference price should be updated aswell.
+        Console.WriteLine($"Pricer engine got a new price for {stock.InstrumentId} for {stock.Price}");
         var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
         _messageBus.Publish(stockTopic, stock);
     }

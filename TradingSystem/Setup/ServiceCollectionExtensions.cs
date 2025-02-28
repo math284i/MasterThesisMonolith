@@ -24,7 +24,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IJPMorgan, JPMorganAPI>();
         services.AddSingleton<INASDAQ, NASDAQAPI>();
         services.AddSingleton<IClient, ClientAPI>();
-        services.AddSingleton<IBrokerInteractor, BrokerInteractor>();
+        services.AddSingleton<IMarketDataGateway, MarketDataGateway>();
         services.AddSingleton<IPricerEngine, PricerEngine>();
         return services;
     }

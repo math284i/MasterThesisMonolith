@@ -81,7 +81,7 @@
     private HashSet<StockOptions> stocks = new();
     private bool _isInitialized = false;
     private bool _isAuthenticated = false;
-    private HashSet<StockOptions> selectedStocks = new();
+    private List<StockOptions> selectedStocks = new();
     private string clientId = "";
     private float counter = 0.0f;
 
@@ -104,9 +104,31 @@
             EnableLivePrices = stock.EnableLivePrices,
             InstrumentId = stock.InstrumentId
         };
+
+        if (info.EnableLivePrices)
+        {
+            var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(info.InstrumentId);
+            MessageBus.Subscribe<StockOptions>(stockTopic, TmpUpdatePrice);
+        }
+        else
+        {
+            // MessageBus.Unsubscribe(); //TODO !!
+        }
         
         // Im not sure if its smarter / more efficient, to just remove / add based on parameter
-        selectedStocks = stocks.Where(s => s.EnableLivePrices).ToHashSet();
+        selectedStocks = stocks.Where(s => s.EnableLivePrices).ToList();
+    }
+
+    private async Task TmpUpdatePrice(StockOptions stock)
+    {
+        var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == stock.InstrumentId);
+
+        if (matchingStock != null)
+        {
+            matchingStock.Price = stock.Price;
+            await InvokeAsync(StateHasChanged);
+        }
+        
     }
 
     private void UpdatePrice(StreamInformation streamInformation, float price)

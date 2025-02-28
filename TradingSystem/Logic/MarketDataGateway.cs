@@ -10,10 +10,9 @@ public interface IMarketDataGateway
 }
 
 
-public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ)
+public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ) : IMarketDataGateway
 {
-    public const string REQUEST_MARKET_PRICE = "MarketDataGateway-requestMarketPrice";
-
+    private HashSet<StockOptions> _stockOptions = new HashSet<StockOptions>();
     private readonly CancellationTokenSource _cts = new();
     /*
     public MarketDataGateway
@@ -39,6 +38,11 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
 
     public void Start()
     {
+        messageBus.Subscribe<HashSet<StockOptions>>("allInstruments", stocks =>
+        {
+            _stockOptions = stocks;
+        });
+        
         Task.Run(() => RunLoop(_cts.Token)); // Run in a background task
     }
 
@@ -47,8 +51,17 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
         while (!token.IsCancellationRequested)
         {
             (string,float) result = await marketCheck(nordea, JPMorgan, NASDAQ);
-            Console.WriteLine($"MarketDataGateWay sees that the price of {result.Item1} has update to {result.Item2}");
-            //Send message about result on bus
+
+            foreach (StockOptions stock in _stockOptions)
+            {
+                if (stock.InstrumentId == result.Item1)
+                {
+                    stock.Price = result.Item2;
+                    Console.WriteLine($"MarketDataGateWay sees that the price of {result.Item1} has update to {result.Item2}");
+                    var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
+                    messageBus.Publish(stockTopic, stock);
+                }
+            }
         }
     }
 
