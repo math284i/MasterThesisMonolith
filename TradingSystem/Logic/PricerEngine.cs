@@ -31,17 +31,18 @@ public class PricerEngine : IPricerEngine
                 InstrumentId = stock,
                 Price = 0.0f
             };
-            //newStock.Price = GeneratePrice(newStock);
             _referencePrices.Add(newStock);
+            var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(newStock.InstrumentId);
+            _messageBus.Subscribe<StockOptions>(stockTopic, UpdatePrice);
         }
         _messageBus.Publish("allInstruments", _referencePrices);
-        SetupMessageBus();
+        
     }
 
-    private void SetupMessageBus()
+    private void UpdatePrice(StockOptions stock)
     {
-
+        //Reference price should be updated aswell.
+        var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
+        _messageBus.Publish(stockTopic, stock);
     }
-
-    
 }

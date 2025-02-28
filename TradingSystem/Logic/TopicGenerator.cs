@@ -6,4 +6,9 @@ public class TopicGenerator
     {
         return "clientPrice" + instrument;
     }
+
+    public static string TopicForMarketInstrumentPrice(string instrument)
+    {
+        return "marketPrice" + instrument;
+    }
 }
