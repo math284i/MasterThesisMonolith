@@ -21,21 +21,14 @@ namespace TradingSystem.Logic.ExternalBrokers
 
         public (string,float) simulatePriceChange()
         {
-            /*
             while (rand.Next(0, 100) > 0)
-                System.Threading.Thread.Sleep(500);
+                System.Threading.Thread.Sleep(100);
 
             var updateKey = myPrices.ElementAt(rand.Next(0, myPrices.Count)).Key;
             var price = (rand.Next(0, 2) > 0) ? myPrices[updateKey] - 0.1f : myPrices[updateKey] + 0.1f;
             Console.WriteLine("Updated price of JPMorgan stock: " + updateKey + " from " + myPrices[updateKey] + " to " + price);
             myPrices[updateKey] = price;
             return (updateKey,price);
-            */
-            while (true)
-            {
-                System.Threading.Thread.Sleep(500);
-            }
-            return ("", 0.0f);
         }
     }
 }
