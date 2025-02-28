@@ -29,7 +29,6 @@ public class PricerEngine : IPricerEngine
             var newStock = new StockOptions
             {
                 InstrumentId = stock,
-                EnableLivePrices = false,
                 Price = 0.0f
             };
             //newStock.Price = GeneratePrice(newStock);

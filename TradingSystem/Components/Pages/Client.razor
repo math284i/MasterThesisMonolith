@@ -72,9 +72,6 @@
                         }
                     </div>
                 </div>
-                <button class="simulate-btn" @onclick="SimulatePriceChange">
-                    <span class="material-icons">Simulate Price Change</span>
-                </button>
             </div>
         }
     </div>
@@ -112,20 +109,14 @@
         selectedStocks = stocks.Where(s => s.EnableLivePrices).ToHashSet();
     }
 
-    private void UpdatePrice(string localClientId, string instrumentId, float price)
+    private void UpdatePrice(StreamInformation streamInformation, float price)
     {
-        if (localClientId != clientId) return;
-        var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == instrumentId);
+        if (streamInformation.ClientId != clientId) return;
+        var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == streamInformation.InstrumentId);
 
         if (matchingStock != null)
         {
             matchingStock.Price = price;
         }
-    }
-
-    private void SimulatePriceChange()
-    {
-        counter++;
-        UpdatePrice(clientId, "GME", counter);
     }
 }
