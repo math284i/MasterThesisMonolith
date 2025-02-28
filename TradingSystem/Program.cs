@@ -1,4 +1,5 @@
 using TradingSystem.Components;
+using TradingSystem.Logic;
 using TradingSystem.Setup;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +10,8 @@ builder.Services.AddRazorComponents()
     .Services.SetupLogging().SetupExternalData(builder.Configuration).SetupTradingSystem();
 
 var app = builder.Build();
+
+app.Services.GetRequiredService<IPricerEngine>();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

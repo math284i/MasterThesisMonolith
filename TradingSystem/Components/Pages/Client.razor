@@ -1,10 +1,11 @@
 @page "/"
 @using TradingSystem.Data
+@using TradingSystem.DTO
 @using TradingSystem.Logic
 @using TradingSystem.Setup
 @inject JsLogger Logger
 @inject IClient ClientService
-@inject IPricerEngineClient Engine
+@inject IMessageBus MessageBus
 @rendermode InteractiveServer
 
 <link rel="stylesheet" href="Styles/ClientStyle.css">
@@ -71,9 +72,6 @@
                         }
                     </div>
                 </div>
-                <button class="simulate-btn" @onclick="SimulatePriceChange">
-                    <span class="material-icons">Simulate Price Change</span>
-                </button>
             </div>
         }
     </div>
@@ -90,32 +88,35 @@
     private async Task Login()
     {
         _isAuthenticated = true;
-        stocks = ClientService.GetStockOptions();
+        stocks = ClientService.GetStockOptions<HashSet<StockOptions>>(stockOptions =>
+        {
+            stocks = stockOptions;
+        });
         await Logger.LogAsync("Started session for user: " + clientId);
         _isInitialized = true;
     }
     
     private void UpdateSelectedStocks(StockOptions stock)
     {
-        Engine.Stream(clientId, stock.InstrumentId, stock.EnableLivePrices);   
+        var info = new StreamInformation
+        {
+            ClientId = clientId,
+            EnableLivePrices = stock.EnableLivePrices,
+            InstrumentId = stock.InstrumentId
+        };
+        
         // Im not sure if its smarter / more efficient, to just remove / add based on parameter
         selectedStocks = stocks.Where(s => s.EnableLivePrices).ToHashSet();
     }
 
-    private void UpdatePrice(string localClientId, string instrumentId, float price)
+    private void UpdatePrice(StreamInformation streamInformation, float price)
     {
-        if (localClientId != clientId) return;
-        var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == instrumentId);
+        if (streamInformation.ClientId != clientId) return;
+        var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == streamInformation.InstrumentId);
 
         if (matchingStock != null)
         {
             matchingStock.Price = price;
         }
-    }
-
-    private void SimulatePriceChange()
-    {
-        counter++;
-        UpdatePrice(clientId, "GME", counter);
     }
 }

@@ -1,69 +1,47 @@
+using Microsoft.Extensions.Options;
 using TradingSystem.Data;
+using TradingSystem.DTO;
 using TradingSystem.Setup;
 
 namespace TradingSystem.Logic;
 
-public interface IPricerEngineClient
+public interface IPricerEngine
 {
-    public void Stream(string clientId, string instrumentId, bool enableLivePrices);
+    
 }
 
-public interface IPricerEngineInternal
-{
-    public void ThereIsUpdate(string instrumentId);
-}
 
-public class PricerEngine(IClient client) : IPricerEngineClient, IPricerEngineInternal
+public class PricerEngine : IPricerEngine
 {
     private readonly Dictionary<string, HashSet<StockOptions>> _clientsDict = new();
-    private readonly Dictionary<string, Action<string, string, int>> _clientsFunctions = new();
-    private readonly HashSet<StockOptions> _stocks = client.GetStockOptions();
+    private readonly HashSet<StockOptions> _referencePrices;
+    private readonly IMessageBus _messageBus;
 
-    public void Stream(string clientId, string instrumentId, bool enableLivePrices)
+    public PricerEngine(IOptions<TradingOptions> stocksOptions, IMessageBus messageBus)
     {
-        if (!_clientsDict.ContainsKey(clientId))
+        Console.WriteLine("Pricer engine starting up...");
+        _referencePrices = new HashSet<StockOptions>();
+        _messageBus = messageBus;
+        var stocks = stocksOptions.Value.Stocks;
+
+        foreach (var stock in stocks)
         {
-            var tmpStocks = _stocks;
-            _clientsDict.Add(clientId, tmpStocks);
+            var newStock = new StockOptions
+            {
+                InstrumentId = stock,
+                Price = 0.0f
+            };
+            //newStock.Price = GeneratePrice(newStock);
+            _referencePrices.Add(newStock);
         }
-        else
-        {
-            var stockOption = _clientsDict[clientId].First(o => o.InstrumentId == instrumentId);
-            stockOption.EnableLivePrices = enableLivePrices;
-        }
-
-        foreach (var client in _clientsDict)
-        {
-            Console.WriteLine("Client: {0} with setup: {1}", client.Key, client.Value);
-        }
+        _messageBus.Publish("allInstruments", _referencePrices);
+        SetupMessageBus();
     }
 
-    public void ThereIsUpdate(string instrumentId)
+    private void SetupMessageBus()
     {
-        var newPrice = GeneratePrice(instrumentId);
-        UpdatePrice(instrumentId, newPrice);
+
     }
 
-    private void UpdatePrice(string instrumentId, float price)
-    {
-        
-    }
-
-    private float GeneratePrice(string instrumentId)
-    {
-        CheckMarketPrice(instrumentId);
-        CheckBook(instrumentId);
-        return 0.0f;
-    }
-
-    private void CheckMarketPrice(string instrumentId)
-    {
-        
-    }
-
-    private void CheckBook(string instrumentId)
-    {
-        
-    }
     
 }

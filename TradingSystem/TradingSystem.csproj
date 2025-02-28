@@ -10,8 +10,4 @@
       <None Include="wwwroot\Styles\ClientStyle.css" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="DTO\" />
-    </ItemGroup>
-
 </Project>
