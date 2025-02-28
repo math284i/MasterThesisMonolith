@@ -1,5 +1,6 @@
 using TradingSystem.Data;
 using TradingSystem.Logic;
+using TradingSystem.Logic.ExternalBrokers;
 
 namespace TradingSystem.Setup;
 
@@ -12,6 +13,7 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection SetupExternalData(this IServiceCollection services, IConfiguration configuration)
     {
+        services.Configure<BrokerStocks>(configuration.GetSection(BrokerStocks.SectionName));
         return services.Configure<TradingOptions>(configuration.GetSection(TradingOptions.SectionName));
     }
 
@@ -19,6 +21,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IMessageBus, MessageBus>();
         services.AddSingleton<IClient, Client>();
+        services.AddSingleton<INordea, NordeaAPI>();
         services.AddSingleton<IPricerEngineClient, PricerEngine>();
         return services;
     }

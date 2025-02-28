@@ -1,0 +1,42 @@
+﻿using Microsoft.Extensions.Options;
+using TradingSystem.Data;
+
+namespace TradingSystem.Logic.ExternalBrokers
+{
+    public interface INASDAQ
+    {
+        public (string,float) simulatePriceChange();
+    }
+
+    public class NASDAQAPI : INASDAQ
+    {
+        private Dictionary<string, float> myPrices = new Dictionary<string, float>();
+        private Random rand = new Random();
+        public NASDAQAPI(IOptions<BrokerStocks> brokerStocks)
+        {
+            var options = brokerStocks.Value;
+            foreach (string name in options.NASDAQ)
+                myPrices.Add(name, 10.0f);
+        }
+
+        public (string,float) simulatePriceChange()
+        {
+            /*
+            while (rand.Next(0, 100) > 0)
+                System.Threading.Thread.Sleep(500);
+
+            var updateKey = myPrices.ElementAt(rand.Next(0, myPrices.Count)).Key;
+            var price = (rand.Next(0, 2) > 0) ? myPrices[updateKey] - 0.1f : myPrices[updateKey] + 0.1f;
+            Console.WriteLine("Updated price of NASDAQ stock: " + updateKey + " from " + myPrices[updateKey] + " to " + price);
+            myPrices[updateKey] = price;
+            return (updateKey,price);
+            */
+            while (true)
+            {
+                System.Threading.Thread.Sleep(500);
+            }
+            return ("",0.0f);
+        }
+
+    }
+}
