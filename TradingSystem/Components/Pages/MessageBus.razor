@@ -1,0 +1,63 @@
+@page "/MessageBus"
+@using TradingSystem.Logic
+@inject IMessageBus messageBus
+
+<h2>Message Bus Monitor</h2>
+
+<h3>Subscribers</h3>
+<table class="table">
+    <thead>
+    <tr>
+        <th>Key</th>
+        <th>Subscribers (Sorted)</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var entry in _subscribers)
+    {
+        <tr>
+            <td>@entry.Key</td>
+            <td>@string.Join(", ", entry.Value)</td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<h3>Messages on the Bus</h3>
+<table class="table">
+    <thead>
+    <tr>
+        <th>Key</th>
+        <th>Message</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var entry in _messages)
+    {
+        <tr>
+            <td>@entry.Key</td>
+            <td>@entry.Value</td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@code {
+    private Dictionary<string, List<string>> _subscribers = new();
+    private Dictionary<string, object> _messages = new();
+
+    protected override void OnInitialized()
+    {
+        RefreshData();
+    }
+
+    private void RefreshData()
+    {
+        _subscribers = messageBus.GetSubscribers();
+        _messages = messageBus.GetMessages();
+        StateHasChanged();
+
+        const int threeSecondsInMilliseconds = 3000;
+        Task.Delay(threeSecondsInMilliseconds).ContinueWith(_ => InvokeAsync(RefreshData));
+    }
+}

@@ -9,6 +9,9 @@ namespace TradingSystem.Logic
         void Subscribe<T>(string key, string subscriberId, Action<T> handler);
         void Unsubscribe(string key, string subscriberId);
         void Publish<T>(string key, T message);
+
+        public Dictionary<string, List<string>> GetSubscribers();
+        public Dictionary<string, object> GetMessages();
     }
 
     public class MessageBus : IMessageBus
@@ -61,5 +64,19 @@ namespace TradingSystem.Logic
                 }
             }
         }
+        
+        public Dictionary<string, List<string>> GetSubscribers()
+        {
+            return _subscribers.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.Keys.OrderBy(id => id).ToList()
+            );
+        }
+
+        public Dictionary<string, object> GetMessages()
+        {
+            return new Dictionary<string, object>(_messagesOnTheBus);
+        }
+        
     }
 }
