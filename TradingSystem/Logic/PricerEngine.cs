@@ -7,7 +7,8 @@ namespace TradingSystem.Logic;
 
 public interface IPricerEngine
 {
-    
+    public void Start();
+    public void Stop();
 }
 
 
@@ -18,7 +19,7 @@ public class PricerEngine : IPricerEngine
     private readonly IMessageBus _messageBus;
     private const string Id = "pricerEngine";
 
-    public PricerEngine(IOptions<TradingOptions> stocksOptions, IMessageBus messageBus, IMarketDataGateway tmp)
+    public PricerEngine(IOptions<TradingOptions> stocksOptions, IMessageBus messageBus)
     {
         Console.WriteLine("Pricer engine starting up...");
         _referencePrices = new HashSet<StockOptions>();
@@ -36,8 +37,17 @@ public class PricerEngine : IPricerEngine
             var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(newStock.InstrumentId);
             _messageBus.Subscribe<StockOptions>(stockTopic, Id, UpdatePrice);
         }
+        
+    }
+
+    public void Start()
+    {
         _messageBus.Publish("allInstruments", _referencePrices);
-        tmp.Start(); //TODO REMOVE!!!!!
+    }
+
+    public void Stop()
+    {
+        // TODO unsubscribe to everything
     }
 
     private void UpdatePrice(StockOptions stock)
