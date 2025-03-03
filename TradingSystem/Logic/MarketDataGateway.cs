@@ -14,6 +14,7 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
 {
     private HashSet<StockOptions> _stockOptions = new HashSet<StockOptions>();
     private readonly CancellationTokenSource _cts = new();
+    private const string Id = "marketDataGateway";
     /*
     public MarketDataGateway
     {
@@ -38,7 +39,7 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
 
     public void Start()
     {
-        messageBus.Subscribe<HashSet<StockOptions>>("allInstruments", stocks =>
+        messageBus.Subscribe<HashSet<StockOptions>>("allInstruments", Id, stocks =>
         {
             _stockOptions = stocks;
         });
@@ -57,7 +58,7 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
                 if (stock.InstrumentId == result.Item1)
                 {
                     stock.Price = result.Item2;
-                    Console.WriteLine($"MarketDataGateWay sees that the price of {result.Item1} has update to {result.Item2}");
+                    //Console.WriteLine($"MarketDataGateWay sees that the price of {result.Item1} has update to {result.Item2}");
                     var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
                     messageBus.Publish(stockTopic, stock);
                 }

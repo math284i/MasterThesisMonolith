@@ -73,6 +73,15 @@
                     </div>
                 </div>
             </div>
+            @if (_isDevelopment)
+            {
+                <h3>Put new price on bus:</h3>
+                <input class="input-field" @bind="_developmentInstrumentId" />
+                <input class="input-field" @bind="_developmentPrice" />
+                <button class="login-btn" @onclick="SimulateNewPrice">
+                    <span class="material-icons">Put price</span>
+                </button>
+            }
         }
     </div>
 </div>
@@ -81,9 +90,11 @@
     private HashSet<StockOptions> stocks = new();
     private bool _isInitialized = false;
     private bool _isAuthenticated = false;
+    private bool _isDevelopment = true;
+    private string _developmentInstrumentId = "";
+    private float _developmentPrice = 0.0f;
     private List<StockOptions> selectedStocks = new();
     private string clientId = "";
-    private float counter = 0.0f;
 
     private async Task Login()
     {
@@ -98,7 +109,6 @@
     
     private void UpdateSelectedStocks(StockOptions stock)
     {
-        Console.WriteLine($"Client: {clientId} updated stock: {stock.InstrumentId}");
         var info = new StreamInformation
         {
             ClientId = clientId,
@@ -106,14 +116,14 @@
             InstrumentId = stock.InstrumentId
         };
 
+        var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(info.InstrumentId);
         if (info.EnableLivePrices)
         {
-            var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(info.InstrumentId);
-            MessageBus.Subscribe<StockOptions>(stockTopic, TmpUpdatePrice);
+            MessageBus.Subscribe<StockOptions>(stockTopic, clientId, TmpUpdatePrice);
         }
         else
         {
-            // MessageBus.Unsubscribe(); //TODO !!
+            MessageBus.Unsubscribe(stockTopic, clientId);
         }
         
         // Im not sure if its smarter / more efficient, to just remove / add based on parameter
@@ -122,6 +132,7 @@
 
     private async void TmpUpdatePrice(StockOptions stock)
     {
+        Console.WriteLine($"Client: {clientId} updated stock: {stock.InstrumentId}");
         var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == stock.InstrumentId);
 
         if (matchingStock != null)
@@ -130,6 +141,17 @@
             await InvokeAsync(StateHasChanged);
         }
         
+    }
+
+    private void SimulateNewPrice()
+    {
+        var stock = new StockOptions
+        {
+            InstrumentId = _developmentInstrumentId,
+            Price = _developmentPrice
+        };
+        var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
+        MessageBus.Publish(stockTopic, stock);
     }
 
     private void UpdatePrice(StreamInformation streamInformation, float price)

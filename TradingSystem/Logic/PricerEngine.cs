@@ -16,6 +16,7 @@ public class PricerEngine : IPricerEngine
     private readonly Dictionary<string, HashSet<StockOptions>> _clientsDict = new();
     private readonly HashSet<StockOptions> _referencePrices;
     private readonly IMessageBus _messageBus;
+    private const string Id = "pricerEngine";
 
     public PricerEngine(IOptions<TradingOptions> stocksOptions, IMessageBus messageBus, IMarketDataGateway tmp)
     {
@@ -33,7 +34,7 @@ public class PricerEngine : IPricerEngine
             };
             _referencePrices.Add(newStock);
             var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(newStock.InstrumentId);
-            _messageBus.Subscribe<StockOptions>(stockTopic, UpdatePrice);
+            _messageBus.Subscribe<StockOptions>(stockTopic, Id, UpdatePrice);
         }
         _messageBus.Publish("allInstruments", _referencePrices);
         tmp.Start(); //TODO REMOVE!!!!!

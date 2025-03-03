@@ -26,7 +26,7 @@ namespace TradingSystem.Logic.ExternalBrokers
 
             var updateKey = myPrices.ElementAt(rand.Next(0, myPrices.Count)).Key;
             var price = (rand.Next(0, 2) > 0) ? myPrices[updateKey] - 0.1f : myPrices[updateKey] + 0.1f;
-            Console.WriteLine("Updated price of NASDAQ stock: " + updateKey + " from " + myPrices[updateKey] + " to " + price);
+            //Console.WriteLine("Updated price of NASDAQ stock: " + updateKey + " from " + myPrices[updateKey] + " to " + price);
             myPrices[updateKey] = price;
             return (updateKey,price);
         }
