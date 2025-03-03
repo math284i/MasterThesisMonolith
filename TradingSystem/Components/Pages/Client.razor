@@ -98,6 +98,7 @@
     
     private void UpdateSelectedStocks(StockOptions stock)
     {
+        Console.WriteLine($"Client: {clientId} updated stock: {stock.InstrumentId}");
         var info = new StreamInformation
         {
             ClientId = clientId,
