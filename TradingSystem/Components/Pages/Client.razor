@@ -38,7 +38,7 @@
                     <div class="stock-selection">
                         <h4 class="section-title">Select stocks to stream prices</h4>
                         <div class="stock-grid">
-                            @foreach (var stock in stocks)
+                            @foreach (var stock in stocks[clientId])
                             {
                                 <div class="stock-item">
                                     <input type="checkbox" class="stock-checkbox" @bind="stock.EnableLivePrices" @bind:after="() => UpdateSelectedStocks(stock)" />
@@ -52,11 +52,11 @@
                     <div class="selected-stocks">
                         <h4 class="section-title">Selected Stocks</h4>
 
-                        @if (selectedStocks.Any())
+                        @if (selectedStocksPerClient.Any())
                         {
                             <div class="stock-list">
                                 <ul>
-                                    @foreach (var stock in selectedStocks)
+                                    @foreach (var stock in selectedStocksPerClient[clientId])
                                     {
                                         <li class="selected-stock-item">
                                             <span class="stock-name">@stock.InstrumentId</span>
@@ -87,22 +87,28 @@
 </div>
 
 @code {
-    private HashSet<StockOptions> stocks = new();
+    private Dictionary<string, HashSet<StockOptions>> stocks = new();
     private bool _isInitialized = false;
     private bool _isAuthenticated = false;
     private bool _isDevelopment = true;
     private string _developmentInstrumentId = "";
     private float _developmentPrice = 0.0f;
-    private List<StockOptions> selectedStocks = new();
     private string clientId = "";
+    private Dictionary<string, List<StockOptions>> selectedStocksPerClient = new();
 
     private async Task Login()
     {
         _isAuthenticated = true;
-        stocks = ClientService.GetStockOptions<HashSet<StockOptions>>(stockOptions =>
+        stocks[clientId] = ClientService.GetStockOptions<HashSet<StockOptions>>(stockOptions =>
         {
-            stocks = stockOptions;
+            stocks[clientId] = stockOptions;
         });
+        
+        if (!selectedStocksPerClient.ContainsKey(clientId))
+        {
+            selectedStocksPerClient[clientId] = new List<StockOptions>();
+        }
+
         await Logger.LogAsync("Started session for user: " + clientId);
         _isInitialized = true;
     }
@@ -126,23 +132,52 @@
             MessageBus.Unsubscribe(stockTopic, clientId);
         }
         
-        // Im not sure if its smarter / more efficient, to just remove / add based on parameter
-        selectedStocks = stocks.Where(s => s.EnableLivePrices).ToList();
+        if (!selectedStocksPerClient.ContainsKey(clientId))
+        {
+            selectedStocksPerClient[clientId] = new List<StockOptions>();
+        }
+        
+        var selectedStocks = selectedStocksPerClient[clientId];
+        if (stock.EnableLivePrices)
+        {
+            if (!selectedStocks.Any(s => s.InstrumentId == stock.InstrumentId))
+            {
+                selectedStocks.Add(stock);
+            }
+        }
+        else
+        {
+            selectedStocks.RemoveAll(s => s.InstrumentId == stock.InstrumentId);
+        }
     }
 
     private async void TmpUpdatePrice(StockOptions stock)
     {
         Console.WriteLine($"Client: {clientId} updated stock: {stock.InstrumentId}");
+
+        if (!selectedStocksPerClient.TryGetValue(clientId, out var selectedStocks)) return;
+
         var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == stock.InstrumentId);
+
+        if (matchingStock == null) return;
+        matchingStock.Price = stock.Price;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdatePrice(StreamInformation streamInformation, float price)
+    {
+        if (streamInformation.ClientId != clientId) return;
+
+        if (!selectedStocksPerClient.TryGetValue(clientId, out var selectedStocks)) return;
+
+        var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == streamInformation.InstrumentId);
 
         if (matchingStock != null)
         {
-            matchingStock.Price = stock.Price;
-            await InvokeAsync(StateHasChanged);
+            matchingStock.Price = price;
         }
-        
     }
-
+    
     private void SimulateNewPrice()
     {
         var stock = new StockOptions
@@ -152,16 +187,5 @@
         };
         var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
         MessageBus.Publish(stockTopic, stock);
-    }
-
-    private void UpdatePrice(StreamInformation streamInformation, float price)
-    {
-        if (streamInformation.ClientId != clientId) return;
-        var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == streamInformation.InstrumentId);
-
-        if (matchingStock != null)
-        {
-            matchingStock.Price = price;
-        }
     }
 }
