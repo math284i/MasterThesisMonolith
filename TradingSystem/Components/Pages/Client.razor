@@ -22,7 +22,8 @@
             <div class="auth-container">
                 <p>Enter your access code to continue:</p>
                 <div class="input-group">
-                    <input type="password" class="input-field" @bind="clientId" />
+                    <input class="input-field" @bind="clientId"/>
+                    <input type="password" class="input-field" @bind="clientPassword"/>
                 </div>
                 <button class="login-btn" @onclick="Login">
                     <span class="material-icons">Login</span>
@@ -88,17 +89,22 @@
 
 @code {
     private Dictionary<string, HashSet<StockOptions>> stocks = new();
-    private bool _isInitialized = false;
-    private bool _isAuthenticated = false;
+    private bool _isAuthenticated = new();
     private bool _isDevelopment = true;
     private string _developmentInstrumentId = "";
     private float _developmentPrice = 0.0f;
     private string clientId = "";
+    private string clientPassword = "";
     private Dictionary<string, List<StockOptions>> selectedStocksPerClient = new();
 
-    private async Task Login()
+    private void Login()
     {
-        _isAuthenticated = true;
+        ClientService.Login(clientId, clientPassword, LoginSuccess);
+    }
+    
+    private void LoginSuccess(bool success)
+    {
+        _isAuthenticated = success;
         stocks[clientId] = ClientService.GetStockOptions<HashSet<StockOptions>>(stockOptions =>
         {
             stocks[clientId] = stockOptions;
@@ -108,9 +114,6 @@
         {
             selectedStocksPerClient[clientId] = new List<StockOptions>();
         }
-
-        await Logger.LogAsync("Started session for user: " + clientId);
-        _isInitialized = true;
     }
     
     private void UpdateSelectedStocks(StockOptions stock)
@@ -122,7 +125,11 @@
             InstrumentId = stock.InstrumentId
         };
         
-                
+        if (!selectedStocksPerClient.ContainsKey(clientId))
+        {
+            selectedStocksPerClient[clientId] = new List<StockOptions>();
+        }
+        
         var selectedStocks = selectedStocksPerClient[clientId];
         if (stock.EnableLivePrices)
         {
@@ -135,26 +142,12 @@
         {
             selectedStocks.RemoveAll(s => s.InstrumentId == stock.InstrumentId);
         }
-
-        var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(info.InstrumentId);
-        if (info.EnableLivePrices)
-        {
-            MessageBus.Subscribe<StockOptions>(stockTopic, clientId, TmpUpdatePrice);
-        }
-        else
-        {
-            MessageBus.Unsubscribe(stockTopic, clientId);
-        }
         
-        if (!selectedStocksPerClient.ContainsKey(clientId))
-        {
-            selectedStocksPerClient[clientId] = new List<StockOptions>();
-        }
+        ClientService.StreamPrice(info, UpdatePrice);
     }
 
-    private async void TmpUpdatePrice(StockOptions stock)
+    private async void UpdatePrice(StockOptions stock)
     {
-
         if (!selectedStocksPerClient.TryGetValue(clientId, out var selectedStocks)) return;
 
         var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == stock.InstrumentId);
@@ -162,20 +155,6 @@
         if (matchingStock == null) return;
         matchingStock.Price = stock.Price;
         await InvokeAsync(StateHasChanged);
-    }
-
-    private void UpdatePrice(StreamInformation streamInformation, float price)
-    {
-        if (streamInformation.ClientId != clientId) return;
-
-        if (!selectedStocksPerClient.TryGetValue(clientId, out var selectedStocks)) return;
-
-        var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == streamInformation.InstrumentId);
-
-        if (matchingStock != null)
-        {
-            matchingStock.Price = price;
-        }
     }
     
     private void SimulateNewPrice()

@@ -1,11 +1,18 @@
 using Microsoft.Extensions.Options;
 using TradingSystem.Data;
+using TradingSystem.DTO;
 
 namespace TradingSystem.Logic;
 
 public interface IClient
 {
     public HashSet<StockOptions> GetStockOptions<T>(Action<T> client);
+    public void HandleOrder();
+
+    public void Login(string clientId, string password, Action<bool> callback);
+    
+    public void Logout();
+    void StreamPrice(StreamInformation info, Action<StockOptions> updatePrice);
 }
 
 public class ClientAPI : IClient
@@ -13,12 +20,14 @@ public class ClientAPI : IClient
     private HashSet<StockOptions> _tradingOptions;
     private readonly List<Delegate> _clients;
     private const string Id = "clientAPI";
+    private readonly IMessageBus _messageBus;
 
     public ClientAPI(IMessageBus messageBus)
     {
         _tradingOptions = new HashSet<StockOptions>();
         _clients = new List<Delegate>();
-        messageBus.Subscribe<HashSet<StockOptions>>("allInstruments", Id, stockOptions =>
+        _messageBus = messageBus;
+        _messageBus.Subscribe<HashSet<StockOptions>>("allInstruments", Id, stockOptions =>
         {
             Console.WriteLine("ClientAPI found messages" + stockOptions);
             _tradingOptions = stockOptions;
@@ -33,5 +42,33 @@ public class ClientAPI : IClient
     {
         _clients.Add(client);
         return _tradingOptions;
+    }
+
+    public void StreamPrice(StreamInformation info, Action<StockOptions> updatePrice)
+    {
+        var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(info.InstrumentId);
+        if (info.EnableLivePrices)
+        {
+            _messageBus.Subscribe(stockTopic, info.ClientId, updatePrice);
+        }
+        else
+        {
+            _messageBus.Unsubscribe(stockTopic, info.ClientId);
+        }
+    }
+
+    public void HandleOrder()
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Login(string clientId, string password, Action<bool> callback)
+    {
+        callback.Invoke(string.CompareOrdinal(clientId, password) == 0);
+    }
+
+    public void Logout()
+    {
+        throw new NotImplementedException();
     }
 }
