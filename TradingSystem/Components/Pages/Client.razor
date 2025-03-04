@@ -121,6 +121,20 @@
             EnableLivePrices = stock.EnableLivePrices,
             InstrumentId = stock.InstrumentId
         };
+        
+                
+        var selectedStocks = selectedStocksPerClient[clientId];
+        if (stock.EnableLivePrices)
+        {
+            if (!selectedStocks.Any(s => s.InstrumentId == stock.InstrumentId))
+            {
+                selectedStocks.Add(stock);
+            }
+        }
+        else
+        {
+            selectedStocks.RemoveAll(s => s.InstrumentId == stock.InstrumentId);
+        }
 
         var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(info.InstrumentId);
         if (info.EnableLivePrices)
@@ -136,29 +150,15 @@
         {
             selectedStocksPerClient[clientId] = new List<StockOptions>();
         }
-        
-        var selectedStocks = selectedStocksPerClient[clientId];
-        if (stock.EnableLivePrices)
-        {
-            if (!selectedStocks.Any(s => s.InstrumentId == stock.InstrumentId))
-            {
-                selectedStocks.Add(stock);
-            }
-        }
-        else
-        {
-            selectedStocks.RemoveAll(s => s.InstrumentId == stock.InstrumentId);
-        }
     }
 
     private async void TmpUpdatePrice(StockOptions stock)
     {
-        Console.WriteLine($"Client: {clientId} updated stock: {stock.InstrumentId}");
 
         if (!selectedStocksPerClient.TryGetValue(clientId, out var selectedStocks)) return;
 
         var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == stock.InstrumentId);
-
+        
         if (matchingStock == null) return;
         matchingStock.Price = stock.Price;
         await InvokeAsync(StateHasChanged);
