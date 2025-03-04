@@ -7,7 +7,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
-    .Services.SetupLogging().SetupExternalData(builder.Configuration).SetupTradingSystem();
+    .Services.SetupJsLogging()
+    .SetupExternalData(builder.Configuration).SetupTradingSystem();
 
 var app = builder.Build();
 
