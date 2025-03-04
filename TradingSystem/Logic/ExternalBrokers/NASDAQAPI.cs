@@ -5,7 +5,7 @@ namespace TradingSystem.Logic.ExternalBrokers
 {
     public interface INASDAQ
     {
-        public (string,float) simulatePriceChange();
+        public StockOptions simulatePriceChange(ref Lock simulationLock);
     }
 
     public class NASDAQAPI : INASDAQ
@@ -19,16 +19,24 @@ namespace TradingSystem.Logic.ExternalBrokers
                 myPrices.Add(name, 10.0f);
         }
 
-        public (string,float) simulatePriceChange()
+        public StockOptions simulatePriceChange(ref Lock simulationLock)
         {
             while (rand.Next(0, 100) > 0)
-                System.Threading.Thread.Sleep(100);
+                Thread.Sleep(100);
 
-            var updateKey = myPrices.ElementAt(rand.Next(0, myPrices.Count)).Key;
-            var price = (rand.Next(0, 2) > 0) ? myPrices[updateKey] - 0.1f : myPrices[updateKey] + 0.1f;
-            //Console.WriteLine("Updated price of NASDAQ stock: " + updateKey + " from " + myPrices[updateKey] + " to " + price);
-            myPrices[updateKey] = price;
-            return (updateKey,price);
+            lock (simulationLock)
+            {
+                var updateKey = myPrices.ElementAt(rand.Next(0, myPrices.Count)).Key;
+                var price = (rand.Next(0, 2) > 0) ? myPrices[updateKey] - 0.1f : myPrices[updateKey] + 0.1f;
+                Console.WriteLine("Updated price of NASDAQ stock: " + updateKey + " from " + myPrices[updateKey] + " to " + price);
+                myPrices[updateKey] = price;
+                var updatedStock = new StockOptions
+                {
+                    InstrumentId = updateKey,
+                    Price = price
+                };
+                return updatedStock;
+            }
         }
 
     }
