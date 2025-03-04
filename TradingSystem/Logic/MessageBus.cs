@@ -6,37 +6,41 @@ namespace TradingSystem.Logic
 {
     public interface IMessageBus
     {
-        void Subscribe<T>(string key, Action<T> handler);
-        void Unsubscribe<T>(string key, Action<T> handler);
+        void Subscribe<T>(string key, string subscriberId, Action<T> handler);
+        void Unsubscribe(string key, string subscriberId);
         void Publish<T>(string key, T message);
+
+        public Dictionary<string, List<string>> GetSubscribers();
+        public Dictionary<string, object> GetMessages();
     }
 
     public class MessageBus : IMessageBus
     {
-        private readonly ConcurrentDictionary<string, List<Delegate>> _subscribers = new();
+        private readonly ConcurrentDictionary<string, Dictionary<string, Delegate>> _subscribers = new();
         private readonly ConcurrentDictionary<string, object> _messagesOnTheBus = new();
 
-        public void Subscribe<T>(string key, Action<T> handler)
+        public void Subscribe<T>(string key, string subscriberId, Action<T> handler)
         {
-            var handlers = _subscribers.GetOrAdd(key, _ => new List<Delegate>());
+            var handlers = _subscribers.GetOrAdd(key, _ => new Dictionary<string, Delegate>());
             lock (handlers)
             {
-                handlers.Add(handler);
+                handlers[subscriberId] = handler;
             }
-            
+
+            // If a message already exists on the bus for this key, deliver it immediately
             if (_messagesOnTheBus.TryGetValue(key, out var existingMessage) && existingMessage is T typedMessage)
             {
                 handler(typedMessage);
             }
         }
 
-        public void Unsubscribe<T>(string key, Action<T> handler)
+        public void Unsubscribe(string key, string subscriberId)
         {
             if (_subscribers.TryGetValue(key, out var handlers))
             {
                 lock (handlers)
                 {
-                    handlers.Remove(handler);
+                    handlers.Remove(subscriberId);
                     if (handlers.Count == 0)
                     {
                         _subscribers.TryRemove(key, out _);
@@ -53,18 +57,26 @@ namespace TradingSystem.Logic
             {
                 lock (handlers)
                 {
-                    foreach (var handler in handlers)
+                    foreach (var handler in handlers.Values)
                     {
                         ((Action<T>)handler)(message);
                     }
                 }
             }
-
-            foreach (var messages in _messagesOnTheBus)
-            {
-                Console.WriteLine($"Message on the bus: [{messages.Key}]: {messages.Value}");
-            }
-            
         }
+        
+        public Dictionary<string, List<string>> GetSubscribers()
+        {
+            return _subscribers.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.Keys.OrderBy(id => id).ToList()
+            );
+        }
+
+        public Dictionary<string, object> GetMessages()
+        {
+            return new Dictionary<string, object>(_messagesOnTheBus);
+        }
+        
     }
 }

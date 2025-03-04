@@ -24,6 +24,7 @@ namespace TradingSystem.Logic.ExternalBrokers
             while (rand.Next(0, 100) > 0)
                 Thread.Sleep(100);
 
+
             lock (simulationLock)
             {
                 var updateKey = myPrices.ElementAt(rand.Next(0, myPrices.Count)).Key;

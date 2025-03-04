@@ -12,12 +12,13 @@ public class ClientAPI : IClient
 {
     private HashSet<StockOptions> _tradingOptions;
     private readonly List<Delegate> _clients;
+    private const string Id = "clientAPI";
 
     public ClientAPI(IMessageBus messageBus)
     {
         _tradingOptions = new HashSet<StockOptions>();
         _clients = new List<Delegate>();
-        messageBus.Subscribe<HashSet<StockOptions>>("allInstruments", stockOptions =>
+        messageBus.Subscribe<HashSet<StockOptions>>("allInstruments", Id, stockOptions =>
         {
             Console.WriteLine("ClientAPI found messages" + stockOptions);
             _tradingOptions = stockOptions;
