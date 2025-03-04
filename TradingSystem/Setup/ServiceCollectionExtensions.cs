@@ -6,7 +6,7 @@ namespace TradingSystem.Setup;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection SetupLogging(this IServiceCollection services)
+    public static IServiceCollection SetupJsLogging(this IServiceCollection services)
     {
         return services.AddScoped<JsLogger>();
     }
