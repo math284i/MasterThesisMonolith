@@ -26,7 +26,7 @@
                     <input type="password" class="input-field" @bind="_clientPassword"/>
                 </div>
                 <button class="login-btn" @onclick="Login">
-                    <span class="material-icons">Login</span>
+                    <span class="material-icons">Log in</span>
                 </button>
             </div>
         }
@@ -83,6 +83,9 @@
                     <span class="material-icons">Put price</span>
                 </button>
             }
+            <button class="login-btn" @onclick="LogOut">
+                <span class="material-icons">Log out</span>
+            </button>
         }
     </div>
 </div>
@@ -167,4 +170,15 @@
         var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
         MessageBus.Publish(stockTopic, stock);
     }
+
+    private void LogOut()
+    {
+        ClientService.Logout(LogOutSuccess);
+    }
+
+    private void LogOutSuccess(bool authenticated)
+    {
+        _isAuthenticated = authenticated;
+    }
+    
 }

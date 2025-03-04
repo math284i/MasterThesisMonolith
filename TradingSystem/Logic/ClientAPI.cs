@@ -10,8 +10,8 @@ public interface IClient
     public void HandleOrder();
 
     public void Login(string clientId, string password, Action<bool> callback);
-    
-    public void Logout();
+
+    public void Logout(Action<bool> callback);
     void StreamPrice(StreamInformation info, Action<StockOptions> updatePrice);
 }
 
@@ -67,8 +67,8 @@ public class ClientAPI : IClient
         callback.Invoke(string.CompareOrdinal(clientId, password) == 0);
     }
 
-    public void Logout()
+    public void Logout(Action<bool> callback)
     {
-        throw new NotImplementedException();
+        callback.Invoke(false);
     }
 }
