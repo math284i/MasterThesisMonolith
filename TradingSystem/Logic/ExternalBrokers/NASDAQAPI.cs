@@ -46,7 +46,7 @@ namespace TradingSystem.Logic.ExternalBrokers
                     first = false;
                     var updateKey = myPrices.ElementAt(rand.Next(0, myPrices.Count)).Key;
                     var price = (rand.Next(0, 2) > 0) ? myPrices[updateKey] - 0.1f : myPrices[updateKey] + 0.1f;
-                    C_logger.NasdaqApiUpdatePrice(updateKey, myPrices[updateKey], price);
+                    _logger.NasdaqApiUpdatePrice(updateKey, myPrices[updateKey], price);
                     myPrices[updateKey] = price;
                     var updatedStock = new StockOptions
                     {
