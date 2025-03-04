@@ -16,27 +16,6 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
     private HashSet<string> _instrumentIds = new HashSet<string>();
     private readonly CancellationTokenSource _cts = new();
     private Lock _simulationLock = new();
-    /*
-    public MarketDataGateway
-    {
-        while (true)
-            marketCheck(nordea, JPMorgan, NASDAQ);
-            //Send a message on the message queue with the info returned by marketCheck
-
-        
-        messageBus.Subscribe<StockOptions>(REQUEST_MARKET_PRICE, stock =>
-        {
-            Console.WriteLine("Got stock: " + stock.InstrumentId);
-            //Check stock price with brokers
-            //Calculate a best market price
-            Random rand = new Random();
-            float marketPrice = 1.0f * rand.Next(1, 11); //Number return is 1.0f to and including 10.f
-            messageBus.Publish<float>("pricerEngine-responseMarketPrice", marketPrice);
-            Console.WriteLine("Published price for stock " + stock.InstrumentId + " on the bus.");
-        });
-        
-    }
-    */
 
     public void Start()
     {
@@ -60,7 +39,6 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
             StockOptions result = await marketCheck(nordea, JPMorgan, NASDAQ);
             if(_instrumentIds.Contains(result.InstrumentId))
             {
-                Console.WriteLine($"MarketDataGateWay sees that the price of {result.InstrumentId} has update to {result.Price}");
                 var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(result.InstrumentId);
                 messageBus.Publish(stockTopic, result);
             }
@@ -72,20 +50,22 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
         using var cts = new CancellationTokenSource();
         var token = cts.Token;
 
+        bool firstInLocker = true;
+
         Task<StockOptions> funNordea() => Task.Run( () =>
         {
-            return Nordea.simulatePriceChange(ref _simulationLock);
-        }, token);
+            return Nordea.simulatePriceChange(ref _simulationLock, ref token, ref firstInLocker);
+        });
 
         Task<StockOptions> funJPMorgan() => Task.Run(() =>
         {
-            return JPMorgan.simulatePriceChange(ref _simulationLock);
-        }, token);
+            return JPMorgan.simulatePriceChange(ref _simulationLock, ref token, ref firstInLocker);
+        });
 
         Task<StockOptions> funNASDAQ() => Task.Run(() =>
         {
-            return NASDAQ.simulatePriceChange(ref _simulationLock);
-        }, token);
+            return NASDAQ.simulatePriceChange(ref _simulationLock, ref token, ref firstInLocker);
+        });
 
         // Start three tasks
         Task<StockOptions>[] tasks = { funNordea(), funJPMorgan(), funNASDAQ() };
