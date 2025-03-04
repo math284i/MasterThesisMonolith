@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using TradingSystem.Data;
 using TradingSystem.DTO;
+using TradingSystem.Logic.LoggerExtensions;
 using TradingSystem.Setup;
 
 namespace TradingSystem.Logic;
@@ -14,17 +15,27 @@ public interface IPricerEngine
 
 public class PricerEngine : IPricerEngine
 {
+    private readonly ILogger<PricerEngine> _logger;
     private readonly Dictionary<string, HashSet<StockOptions>> _clientsDict = new();
     private readonly HashSet<StockOptions> _referencePrices;
+    private readonly IOptions<TradingOptions> _tradingOptions;
     private readonly IMessageBus _messageBus;
     private const string Id = "pricerEngine";
 
-    public PricerEngine(IOptions<TradingOptions> stocksOptions, IMessageBus messageBus)
+    public PricerEngine(ILogger<PricerEngine> logger, IOptions<TradingOptions> stocksOptions, IMessageBus messageBus)
     {
-        Console.WriteLine("Pricer engine starting up...");
+        _logger = logger;
+        _logger.LogInformation("Pricer engine starting up...");
         _referencePrices = new HashSet<StockOptions>();
+        _tradingOptions = stocksOptions;
         _messageBus = messageBus;
-        var stocks = stocksOptions.Value.Stocks;
+        
+    }
+
+    public void Start()
+    {
+        _logger.PricerEngineStartUp();
+        var stocks = _tradingOptions.Value.Stocks;
 
         foreach (var stock in stocks)
         {
@@ -37,12 +48,8 @@ public class PricerEngine : IPricerEngine
             var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(newStock.InstrumentId);
             _messageBus.Subscribe<StockOptions>(stockTopic, Id, UpdatePrice);
         }
-        
-    }
-
-    public void Start()
-    {
         _messageBus.Publish("allInstruments", _referencePrices);
+        _logger.PricerEngineStarted();
     }
 
     public void Stop()
@@ -53,7 +60,7 @@ public class PricerEngine : IPricerEngine
     private void UpdatePrice(StockOptions stock)
     {
         //Reference price should be updated aswell.
-        Console.WriteLine($"Pricer engine got a new price for {stock.InstrumentId} for {stock.Price}");
+        _logger.PricerEngineReceivedNewPrice(stock.InstrumentId, stock.Price);
         var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
         _messageBus.Publish(stockTopic, stock);
     }
