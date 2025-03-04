@@ -25,7 +25,6 @@ public class PricerEngine : IPricerEngine
     public PricerEngine(ILogger<PricerEngine> logger, IOptions<TradingOptions> stocksOptions, IMessageBus messageBus)
     {
         _logger = logger;
-        _logger.LogInformation("Pricer engine starting up...");
         _referencePrices = new HashSet<StockOptions>();
         _tradingOptions = stocksOptions;
         _messageBus = messageBus;

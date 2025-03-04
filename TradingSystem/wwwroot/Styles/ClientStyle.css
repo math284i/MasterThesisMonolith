@@ -37,8 +37,7 @@ h2 {
     color: black;
     border: 2px solid black;
 }
-
-input[type="password"] {
+.input-field {
     padding: 10px;
     border-radius: 6px;
     border: 1px solid #ccc;
