@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Options;
 using TradingSystem.Data;
+using TradingSystem.Logic.LoggerExtensions;
 
 namespace TradingSystem.Logic.ExternalBrokers
 {
@@ -10,10 +11,12 @@ namespace TradingSystem.Logic.ExternalBrokers
 
     public class NASDAQAPI : INASDAQ
     {
+        private readonly ILogger<NASDAQAPI> _logger;
         private Dictionary<string, float> myPrices = new Dictionary<string, float>();
         private Random rand = new Random();
-        public NASDAQAPI(IOptions<BrokerStocks> brokerStocks)
+        public NASDAQAPI(ILogger<NASDAQAPI> logger, IOptions<BrokerStocks> brokerStocks)
         {
+            _logger = logger;
             var options = brokerStocks.Value;
             foreach (string name in options.NASDAQ)
                 myPrices.Add(name, 10.0f);
@@ -28,7 +31,7 @@ namespace TradingSystem.Logic.ExternalBrokers
             {
                 var updateKey = myPrices.ElementAt(rand.Next(0, myPrices.Count)).Key;
                 var price = (rand.Next(0, 2) > 0) ? myPrices[updateKey] - 0.1f : myPrices[updateKey] + 0.1f;
-                Console.WriteLine("Updated price of NASDAQ stock: " + updateKey + " from " + myPrices[updateKey] + " to " + price);
+                _logger.NasdaqApiUpdatePrice(updateKey, myPrices[updateKey], price);
                 myPrices[updateKey] = price;
                 var updatedStock = new StockOptions
                 {
