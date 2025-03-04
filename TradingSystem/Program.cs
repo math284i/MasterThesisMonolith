@@ -11,8 +11,6 @@ builder.Services.AddRazorComponents()
 
 var app = builder.Build();
 
-app.Services.GetRequiredService<IPricerEngine>();
-
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {

@@ -16,10 +16,11 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
     private HashSet<string> _instrumentIds = new HashSet<string>();
     private readonly CancellationTokenSource _cts = new();
     private Lock _simulationLock = new();
+    private const string Id = "marketDataGateway";
 
     public void Start()
     {
-        messageBus.Subscribe<HashSet<StockOptions>>("allInstruments", stocks =>
+        messageBus.Subscribe<HashSet<StockOptions>>("allInstruments", Id, stocks =>
         {
             _stockOptions = stocks;
         });

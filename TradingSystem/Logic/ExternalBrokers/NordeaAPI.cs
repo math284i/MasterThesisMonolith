@@ -30,6 +30,7 @@ namespace TradingSystem.Logic.ExternalBrokers
                 Thread.Sleep(500);
             }
 
+
             lock (simulationLock)
             {
                 if (!token.IsCancellationRequested && first)
