@@ -6,7 +6,8 @@ namespace TradingSystem.Logic.ExternalBrokers
 {
     public interface INordea
     {
-        public StockOptions simulatePriceChange(ref Lock simulationLock);
+        public StockOptions simulatePriceChange(ref Lock simulationLock, ref CancellationToken token, ref bool first);
+        public Dictionary<string, float> getPrices();
     }
 
     public class NordeaAPI : INordea
@@ -14,6 +15,7 @@ namespace TradingSystem.Logic.ExternalBrokers
         private readonly ILogger<NordeaAPI> _logger;
         private Dictionary<string, float> myPrices = new Dictionary<string, float>();
         private Random rand = new Random();
+        
         public NordeaAPI(ILogger<NordeaAPI> logger, IOptions<BrokerStocks> brokerStocks)
         {
             _logger = logger;
@@ -21,25 +23,43 @@ namespace TradingSystem.Logic.ExternalBrokers
             foreach (string name in options.Nordea)
                 myPrices.Add(name, 10.0f);
         }
-        
-        public StockOptions simulatePriceChange(ref Lock simulationLock)
+
+        public Dictionary<string, float> getPrices()
         {
-            while (rand.Next(0, 100) > 0)
-                Thread.Sleep(100);
+            return myPrices;
+        }
+
+        public StockOptions simulatePriceChange(ref Lock simulationLock, ref CancellationToken token, ref bool first)
+        {
+            while (rand.Next(0,50) > 0)
+            {
+                if (token.IsCancellationRequested)
+                {
+                    return new StockOptions();
+                }
+                Thread.Sleep(500);
+            }
 
 
             lock (simulationLock)
             {
-                var updateKey = myPrices.ElementAt(rand.Next(0, myPrices.Count)).Key;
-                var price = (rand.Next(0, 2) > 0) ? myPrices[updateKey] - 0.1f : myPrices[updateKey] + 0.1f;
-                _logger.NordeaApiUpdatePrice(updateKey, myPrices[updateKey], price);
-                myPrices[updateKey] = price;
-                var updatedStock = new StockOptions
+                if (!token.IsCancellationRequested && first)
                 {
-                    InstrumentId = updateKey,
-                    Price = price
-                };
-                return updatedStock;
+                    first = false;
+                    var updateKey = myPrices.ElementAt(rand.Next(0, myPrices.Count)).Key;
+                    var price = (rand.Next(0, 2) > 0) ? myPrices[updateKey] - 0.1f : myPrices[updateKey] + 0.1f;
+                    _logger.NordeaApiUpdatePrice(updateKey, myPrices[updateKey], price);
+                    myPrices[updateKey] = price;
+                    var updatedStock = new StockOptions
+                    {
+                        InstrumentId = updateKey,
+                        Price = price
+                    };
+                    return updatedStock;
+                }else
+                {
+                    return new StockOptions();
+                }
             }
         }
     }

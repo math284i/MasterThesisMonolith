@@ -17,27 +17,6 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
     private readonly CancellationTokenSource _cts = new();
     private Lock _simulationLock = new();
     private const string Id = "marketDataGateway";
-    /*
-    public MarketDataGateway
-    {
-        while (true)
-            marketCheck(nordea, JPMorgan, NASDAQ);
-            //Send a message on the message queue with the info returned by marketCheck
-
-        
-        messageBus.Subscribe<StockOptions>(REQUEST_MARKET_PRICE, stock =>
-        {
-            Console.WriteLine("Got stock: " + stock.InstrumentId);
-            //Check stock price with brokers
-            //Calculate a best market price
-            Random rand = new Random();
-            float marketPrice = 1.0f * rand.Next(1, 11); //Number return is 1.0f to and including 10.f
-            messageBus.Publish<float>("pricerEngine-responseMarketPrice", marketPrice);
-            Console.WriteLine("Published price for stock " + stock.InstrumentId + " on the bus.");
-        });
-        
-    }
-    */
 
     public void Start()
     {
@@ -45,12 +24,40 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
         {
             _stockOptions = stocks;
         });
-        
+
+        Dictionary<string, float> nordeaPrices = nordea.getPrices();
+        Dictionary<string, float> JPMorganPrices = JPMorgan.getPrices();
+        Dictionary<string, float> NASDAQPrices = NASDAQ.getPrices();
+
         //Need a set of only instrumentIds, as price changes mean that looking up in the stockoptions set will not function
         foreach (StockOptions stock in _stockOptions)
         {
             _instrumentIds.Add(stock.InstrumentId);
+
+            //Publish initial prices of stocks to bus
+            var minMarketPrice = float.MaxValue;
+            if(nordeaPrices.ContainsKey(stock.InstrumentId) && nordeaPrices[stock.InstrumentId] < minMarketPrice)
+            {
+                minMarketPrice = nordeaPrices[stock.InstrumentId];
+            }
+            else if (JPMorganPrices.ContainsKey(stock.InstrumentId) && JPMorganPrices[stock.InstrumentId] < minMarketPrice)
+            {
+                minMarketPrice = JPMorganPrices[stock.InstrumentId];
+            }
+            else if (NASDAQPrices.ContainsKey(stock.InstrumentId) && NASDAQPrices[stock.InstrumentId] < minMarketPrice)
+            {
+                minMarketPrice = NASDAQPrices[stock.InstrumentId];
+            }
+            else
+            {
+                minMarketPrice = 0.0f;
+            }
+
+            stock.Price = minMarketPrice;
+            var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
+            messageBus.Publish(stockTopic, stock);
         }
+
         Task.Run(() => RunLoop(_cts.Token)); // Run in a background task
     }
 
@@ -72,20 +79,22 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
         using var cts = new CancellationTokenSource();
         var token = cts.Token;
 
+        bool firstInLocker = true;
+
         Task<StockOptions> funNordea() => Task.Run( () =>
         {
-            return Nordea.simulatePriceChange(ref _simulationLock);
-        }, token);
+            return Nordea.simulatePriceChange(ref _simulationLock, ref token, ref firstInLocker);
+        });
 
         Task<StockOptions> funJPMorgan() => Task.Run(() =>
         {
-            return JPMorgan.simulatePriceChange(ref _simulationLock);
-        }, token);
+            return JPMorgan.simulatePriceChange(ref _simulationLock, ref token, ref firstInLocker);
+        });
 
         Task<StockOptions> funNASDAQ() => Task.Run(() =>
         {
-            return NASDAQ.simulatePriceChange(ref _simulationLock);
-        }, token);
+            return NASDAQ.simulatePriceChange(ref _simulationLock, ref token, ref firstInLocker);
+        });
 
         // Start three tasks
         Task<StockOptions>[] tasks = { funNordea(), funJPMorgan(), funNASDAQ() };
