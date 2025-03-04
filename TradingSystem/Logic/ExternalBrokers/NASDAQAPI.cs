@@ -6,17 +6,23 @@ namespace TradingSystem.Logic.ExternalBrokers
     public interface INASDAQ
     {
         public StockOptions simulatePriceChange(ref Lock simulationLock, ref CancellationToken token, ref bool first);
+        public Dictionary<string, float> getPrices();
     }
 
     public class NASDAQAPI : INASDAQ
     {
         private Dictionary<string, float> myPrices = new Dictionary<string, float>();
         private Random rand = new Random();
+
         public NASDAQAPI(IOptions<BrokerStocks> brokerStocks)
         {
             var options = brokerStocks.Value;
             foreach (string name in options.NASDAQ)
                 myPrices.Add(name, 10.0f);
+        }
+        public Dictionary<string, float> getPrices()
+        {
+            return myPrices;
         }
 
         public StockOptions simulatePriceChange(ref Lock simulationLock, ref CancellationToken token, ref bool first)

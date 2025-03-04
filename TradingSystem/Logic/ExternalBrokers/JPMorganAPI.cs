@@ -6,17 +6,24 @@ namespace TradingSystem.Logic.ExternalBrokers
     public interface IJPMorgan
     {
         public StockOptions simulatePriceChange(ref Lock simulationLock, ref CancellationToken token, ref bool first);
+        public Dictionary<string, float> getPrices();
     }
 
     public class JPMorganAPI : IJPMorgan
     {
         private Dictionary<string, float> myPrices = new Dictionary<string, float>();
         private Random rand = new Random();
+
         public JPMorganAPI(IOptions<BrokerStocks> brokerStocks)
         {
             var options = brokerStocks.Value;
             foreach (string name in options.JPMorgan)
                 myPrices.Add(name, 10.0f);
+        }
+
+        public Dictionary<string,float> getPrices()
+        {
+            return myPrices;
         }
 
         public StockOptions simulatePriceChange(ref Lock simulationLock, ref CancellationToken token, ref bool first)

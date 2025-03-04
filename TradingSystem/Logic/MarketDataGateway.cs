@@ -24,12 +24,40 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
         {
             _stockOptions = stocks;
         });
-        
+
+        Dictionary<string, float> nordeaPrices = nordea.getPrices();
+        Dictionary<string, float> JPMorganPrices = JPMorgan.getPrices();
+        Dictionary<string, float> NASDAQPrices = NASDAQ.getPrices();
+
         //Need a set of only instrumentIds, as price changes mean that looking up in the stockoptions set will not function
         foreach (StockOptions stock in _stockOptions)
         {
             _instrumentIds.Add(stock.InstrumentId);
+
+            //Publish initial prices of stocks to bus
+            var minMarketPrice = float.MaxValue;
+            if(nordeaPrices.ContainsKey(stock.InstrumentId) && nordeaPrices[stock.InstrumentId] < minMarketPrice)
+            {
+                minMarketPrice = nordeaPrices[stock.InstrumentId];
+            }
+            else if (JPMorganPrices.ContainsKey(stock.InstrumentId) && JPMorganPrices[stock.InstrumentId] < minMarketPrice)
+            {
+                minMarketPrice = JPMorganPrices[stock.InstrumentId];
+            }
+            else if (NASDAQPrices.ContainsKey(stock.InstrumentId) && NASDAQPrices[stock.InstrumentId] < minMarketPrice)
+            {
+                minMarketPrice = NASDAQPrices[stock.InstrumentId];
+            }
+            else
+            {
+                minMarketPrice = 0.0f;
+            }
+
+            stock.Price = minMarketPrice;
+            var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
+            messageBus.Publish(stockTopic, stock);
         }
+
         Task.Run(() => RunLoop(_cts.Token)); // Run in a background task
     }
 
