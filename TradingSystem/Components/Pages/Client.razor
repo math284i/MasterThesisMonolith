@@ -22,8 +22,8 @@
             <div class="auth-container">
                 <p>Enter your access code to continue:</p>
                 <div class="input-group">
-                    <input class="input-field" @bind="clientId"/>
-                    <input type="password" class="input-field" @bind="clientPassword"/>
+                    <input class="input-field" @bind="_clientId"/>
+                    <input type="password" class="input-field" @bind="_clientPassword"/>
                 </div>
                 <button class="login-btn" @onclick="Login">
                     <span class="material-icons">Login</span>
@@ -33,13 +33,13 @@
         else
         {
             <div class="content">
-                <h3>Logged in as <span class="highlight">@clientId</span></h3>
+                <h3>Logged in as <span class="highlight">@_clientId</span></h3>
                 <div class="stocks-container">
                     <!-- Stock Selection -->
                     <div class="stock-selection">
                         <h4 class="section-title">Select stocks to stream prices</h4>
                         <div class="stock-grid">
-                            @foreach (var stock in stocks[clientId])
+                            @foreach (var stock in stocks[_clientId])
                             {
                                 <div class="stock-item">
                                     <input type="checkbox" class="stock-checkbox" @bind="stock.EnableLivePrices" @bind:after="() => UpdateSelectedStocks(stock)" />
@@ -53,11 +53,11 @@
                     <div class="selected-stocks">
                         <h4 class="section-title">Selected Stocks</h4>
 
-                        @if (selectedStocksPerClient.Any())
+                        @if (_selectedStocksPerClient.Any())
                         {
                             <div class="stock-list">
                                 <ul>
-                                    @foreach (var stock in selectedStocksPerClient[clientId])
+                                    @foreach (var stock in _selectedStocksPerClient[_clientId])
                                     {
                                         <li class="selected-stock-item">
                                             <span class="stock-name">@stock.InstrumentId</span>
@@ -89,30 +89,30 @@
 
 @code {
     private Dictionary<string, HashSet<StockOptions>> stocks = new();
-    private bool _isAuthenticated = new();
+    private bool _isAuthenticated;
     private bool _isDevelopment = true;
     private string _developmentInstrumentId = "";
-    private float _developmentPrice = 0.0f;
-    private string clientId = "";
-    private string clientPassword = "";
-    private Dictionary<string, List<StockOptions>> selectedStocksPerClient = new();
+    private float _developmentPrice;
+    private string _clientId = "";
+    private string _clientPassword = "";
+    private readonly Dictionary<string, List<StockOptions>> _selectedStocksPerClient = new();
 
     private void Login()
     {
-        ClientService.Login(clientId, clientPassword, LoginSuccess);
+        ClientService.Login(_clientId, _clientPassword, LoginSuccess);
     }
     
     private void LoginSuccess(bool success)
     {
         _isAuthenticated = success;
-        stocks[clientId] = ClientService.GetStockOptions<HashSet<StockOptions>>(stockOptions =>
+        stocks[_clientId] = ClientService.GetStockOptions<HashSet<StockOptions>>(stockOptions =>
         {
-            stocks[clientId] = stockOptions;
+            stocks[_clientId] = stockOptions;
         });
         
-        if (!selectedStocksPerClient.ContainsKey(clientId))
+        if (!_selectedStocksPerClient.ContainsKey(_clientId))
         {
-            selectedStocksPerClient[clientId] = new List<StockOptions>();
+            _selectedStocksPerClient[_clientId] = new List<StockOptions>();
         }
     }
     
@@ -120,17 +120,17 @@
     {
         var info = new StreamInformation
         {
-            ClientId = clientId,
+            ClientId = _clientId,
             EnableLivePrices = stock.EnableLivePrices,
             InstrumentId = stock.InstrumentId
         };
         
-        if (!selectedStocksPerClient.ContainsKey(clientId))
+        if (!_selectedStocksPerClient.ContainsKey(_clientId))
         {
-            selectedStocksPerClient[clientId] = new List<StockOptions>();
+            _selectedStocksPerClient[_clientId] = new List<StockOptions>();
         }
         
-        var selectedStocks = selectedStocksPerClient[clientId];
+        var selectedStocks = _selectedStocksPerClient[_clientId];
         if (stock.EnableLivePrices)
         {
             if (!selectedStocks.Any(s => s.InstrumentId == stock.InstrumentId))
@@ -148,7 +148,7 @@
 
     private async void UpdatePrice(StockOptions stock)
     {
-        if (!selectedStocksPerClient.TryGetValue(clientId, out var selectedStocks)) return;
+        if (!_selectedStocksPerClient.TryGetValue(_clientId, out var selectedStocks)) return;
 
         var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == stock.InstrumentId);
         
