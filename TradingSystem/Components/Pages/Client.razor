@@ -42,7 +42,7 @@
                             @foreach (var stock in stocks[_clientId])
                             {
                                 <div class="stock-item">
-                                    <input type="checkbox" class="stock-checkbox" @bind="stock.EnableLivePrices" @bind:after="() => UpdateSelectedStocks(stock)" />
+                                    <input type="checkbox" class="stock-checkbox" @onchange="(args) => UpdateSelectedStocks(args, stock)" />
                                     <label class="stock-label">@stock.InstrumentId</label>
                                 </div>
                             }
@@ -119,14 +119,17 @@
         }
     }
     
-    private void UpdateSelectedStocks(StockOptions stock)
+    private void UpdateSelectedStocks(ChangeEventArgs args, StockOptions stock)
     {
+        Console.WriteLine($"Updating stock: {stock.InstrumentId} enabled: {(bool)args.Value}");
+        var enabled = (bool)(args.Value ?? false);
         var info = new StreamInformation
         {
             ClientId = _clientId,
-            EnableLivePrices = stock.EnableLivePrices,
+            EnableLivePrices = enabled,
             InstrumentId = stock.InstrumentId
         };
+        stock.EnableLivePrices = enabled;
         
         if (!_selectedStocksPerClient.ContainsKey(_clientId))
         {
@@ -179,6 +182,9 @@
     private void LogOutSuccess(bool authenticated)
     {
         _isAuthenticated = authenticated;
+        
     }
-    
 }
+
+
+
