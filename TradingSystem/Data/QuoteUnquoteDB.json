@@ -1,0 +1,13 @@
+{
+  "clients": [
+    {
+      "clientId": "8ecaeb33-817b-4f25-b225-953138eca683",
+      "name": "Danske Bank",
+      "balance": 1000000,
+      "tier": "internal"
+    }
+  ],
+  "customers": [],
+  "holdings": [],
+  "transactions": []
+}

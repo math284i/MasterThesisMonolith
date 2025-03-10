@@ -10,7 +10,7 @@ public interface IMarketDataGateway
 }
 
 
-public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ) : IMarketDataGateway
+public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ, IBook book) : IMarketDataGateway
 {
     private HashSet<StockOptions> _stockOptions = new HashSet<StockOptions>();
     private HashSet<string> _instrumentIds = new HashSet<string>();
@@ -20,6 +20,14 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
 
     public void Start()
     {
+        book.resetDB();
+        //book.addClientCustomer("Anders", "KP", "KP");
+        //book.addTransaction(book.getClientGuid("Danske Bank"), Guid.NewGuid(), "GME", 10, 10.0f, true);
+        //book.addTransaction(book.getClientGuid("Anders"), book.getClientGuid("Danske Bank"), "GME", 5, 10.0f, true);
+        //book.addTransaction(book.getClientGuid("Anders"), book.getClientGuid("Danske Bank"), "GME", 5, 10.0f, false);
+        //var trans = book.getClientTransactions("Danske Bank");
+        //Console.WriteLine("Good Login: " + book.checkLogin("KP", "KP"));
+        //Console.WriteLine("Bad login: " + book.checkLogin("KP", "Dyberg"));
         messageBus.Subscribe<HashSet<StockOptions>>("allInstruments", Id, stocks =>
         {
             _stockOptions = stocks;
@@ -81,19 +89,22 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
 
         bool firstInLocker = true;
 
+        //Each API has a 1/simSpeed chance of simulating a price change every half second.
+        int simSpeed = 25;
+
         Task<StockOptions> funNordea() => Task.Run( () =>
         {
-            return Nordea.simulatePriceChange(ref _simulationLock, ref token, ref firstInLocker);
+            return Nordea.simulatePriceChange(simSpeed, ref _simulationLock, ref token, ref firstInLocker);
         });
 
         Task<StockOptions> funJPMorgan() => Task.Run(() =>
         {
-            return JPMorgan.simulatePriceChange(ref _simulationLock, ref token, ref firstInLocker);
+            return JPMorgan.simulatePriceChange(simSpeed, ref _simulationLock, ref token, ref firstInLocker);
         });
 
         Task<StockOptions> funNASDAQ() => Task.Run(() =>
         {
-            return NASDAQ.simulatePriceChange(ref _simulationLock, ref token, ref firstInLocker);
+            return NASDAQ.simulatePriceChange(simSpeed, ref _simulationLock, ref token, ref firstInLocker);
         });
 
         // Start three tasks

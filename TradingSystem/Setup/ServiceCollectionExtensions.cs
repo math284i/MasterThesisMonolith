@@ -26,7 +26,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IClient, ClientAPI>();
         services.AddSingleton<IMarketDataGateway, MarketDataGateway>();
         services.AddSingleton<IPricerEngine, PricerEngine>();
+        services.AddSingleton<IBook, Book>();
         services.AddHostedService<Logic.Logic>();
         return services;
+
     }
 }
