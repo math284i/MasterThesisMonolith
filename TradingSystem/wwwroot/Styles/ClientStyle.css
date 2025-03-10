@@ -169,3 +169,21 @@ h2 {
     color: green;
     font-weight: bold;
 }
+
+.quantity-input {
+    width: 50px;
+    margin-right: 10px;
+}
+
+.buy-btn {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.buy-btn:hover {
+    background-color: #218838;
+}

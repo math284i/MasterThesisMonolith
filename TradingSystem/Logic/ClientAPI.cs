@@ -7,7 +7,7 @@ namespace TradingSystem.Logic;
 public interface IClient
 {
     public HashSet<StockOptions> GetStockOptions<T>(Action<T> client);
-    public void HandleOrder();
+    public void HandleOrder(Order order);
 
     public void Login(string clientId, string password, Action<bool> callback);
 
@@ -57,9 +57,10 @@ public class ClientAPI : IClient
         }
     }
 
-    public void HandleOrder()
+    public void HandleOrder(Order order)
     {
-        throw new NotImplementedException();
+        var topic = TopicGenerator.TopicForClientBuyOrder();
+        _messageBus.Publish(topic, order, isTransient: true);
     }
 
     public void Login(string clientId, string password, Action<bool> callback)

@@ -62,6 +62,18 @@
                                         <li class="selected-stock-item">
                                             <span class="stock-name">@stock.InstrumentId</span>
                                             <span class="stock-price">@(stock.Price == 0 ? "Price is yet to come" : stock.Price.ToString("C"))</span>
+                                            @if (stock.Price != 0)
+                                            {
+                                                <input type="number" class="quantity-input" min="1" @bind="stock.Quantity"/>
+
+                                                <button class="buy-btn" @onclick="() => BuyStock(stock)">
+                                                    Buy
+                                                </button>
+                                            }
+                                            else
+                                            {
+
+                                            }
                                         </li>
                                     }
                                 </ul>
@@ -163,6 +175,25 @@
         await InvokeAsync(StateHasChanged);
     }
     
+    private void BuyStock(StockOptions stock)
+    {
+        if (stock.Price == 0)
+        {
+            Console.WriteLine("Cannot buy stock without a valid price.");
+            return;
+        }
+
+        Console.WriteLine($"Buying {stock.Quantity} of {stock.InstrumentId} at {stock.Price:C} for client {_clientId}");
+        const OrderSide side = OrderSide.RightSided;
+        var order = new Order
+        {
+            ClientId = _clientId,
+            Side = side,
+            Stock = stock
+        };
+        ClientService.HandleOrder(order);
+    }
+    
     private void SimulateNewPrice()
     {
         var stock = new StockOptions
@@ -185,6 +216,3 @@
         
     }
 }
-
-
-
