@@ -6,7 +6,7 @@ namespace TradingSystem.Logic.ExternalBrokers
 {
     public interface INordea
     {
-        public StockOptions simulatePriceChange(ref Lock simulationLock, ref CancellationToken token, ref bool first);
+        public StockOptions simulatePriceChange(int simSpeed, ref Lock simulationLock, ref CancellationToken token, ref bool first);
         public Dictionary<string, float> getPrices();
     }
 
@@ -29,9 +29,9 @@ namespace TradingSystem.Logic.ExternalBrokers
             return myPrices;
         }
 
-        public StockOptions simulatePriceChange(ref Lock simulationLock, ref CancellationToken token, ref bool first)
+        public StockOptions simulatePriceChange(int simSpeed, ref Lock simulationLock, ref CancellationToken token, ref bool first)
         {
-            while (rand.Next(0,50) > 0)
+            while (rand.Next(0,simSpeed) > 0)
             {
                 if (token.IsCancellationRequested)
                 {
@@ -39,7 +39,6 @@ namespace TradingSystem.Logic.ExternalBrokers
                 }
                 Thread.Sleep(500);
             }
-
 
             lock (simulationLock)
             {

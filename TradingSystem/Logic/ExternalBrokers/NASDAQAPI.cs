@@ -6,7 +6,7 @@ namespace TradingSystem.Logic.ExternalBrokers
 {
     public interface INASDAQ
     {
-        public StockOptions simulatePriceChange(ref Lock simulationLock, ref CancellationToken token, ref bool first);
+        public StockOptions simulatePriceChange(int simSpeed, ref Lock simulationLock, ref CancellationToken token, ref bool first);
         public Dictionary<string, float> getPrices();
     }
 
@@ -23,14 +23,15 @@ namespace TradingSystem.Logic.ExternalBrokers
             foreach (string name in options.NASDAQ)
                 myPrices.Add(name, 10.0f);
         }
+
         public Dictionary<string, float> getPrices()
         {
             return myPrices;
         }
 
-        public StockOptions simulatePriceChange(ref Lock simulationLock, ref CancellationToken token, ref bool first)
+        public StockOptions simulatePriceChange(int simSpeed, ref Lock simulationLock, ref CancellationToken token, ref bool first)
         {
-            while (rand.Next(0,50) > 0)
+            while (rand.Next(0,simSpeed) > 0)
             {
                 if (token.IsCancellationRequested)
                 {
