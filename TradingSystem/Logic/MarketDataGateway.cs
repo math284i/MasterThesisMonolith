@@ -20,7 +20,8 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
 
     public void Start()
     {
-        messageBus.Subscribe<HashSet<StockOptions>>("allInstruments", Id, stocks =>
+        var topic = TopicGenerator.TopicForAllInstruments();
+        messageBus.Subscribe<HashSet<StockOptions>>(topic, Id, stocks =>
         {
             _stockOptions = stocks;
         });

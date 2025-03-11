@@ -62,7 +62,7 @@ public class ExecutionHandler : IExecutionHandler
             _logger.LogInformation($"Letting {order.ClientId} buy order {order.Stock.InstrumentId} at price {order.Stock.Price} quantity {order.Stock.Quantity}");
             
             // TODO if we send it to the market, wait for their acceptance before telling the client it was succeded.
-            var topic = TopicGenerator.TopicForClientOrderEnded(order.ClientId);
+            var topic = TopicGenerator.TopicForClientOrderEnded(order.ClientId.ToString());
             order.Status = OrderStatus.Success;
             _messageBus.Publish(topic, order, isTransient: true);
         }

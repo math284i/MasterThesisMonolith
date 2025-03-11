@@ -37,4 +37,14 @@ public class TopicGenerator
         return "loginResponded";
     }
 
+    public static string TopicForAllClients()
+    {
+        return "allClients";
+    }
+
+    public static string TopicForAllInstruments()
+    {
+        return "allInstruments";
+    }
+
 }

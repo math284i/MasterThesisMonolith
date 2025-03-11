@@ -12,6 +12,7 @@ public class RiskCalculator : IRiskCalculator
 {
     private readonly IMessageBus _messageBus;
     private const string Id = "riskCalculator";
+    private readonly List<ClientData> _clients = new List<ClientData>();
     
     public RiskCalculator(IMessageBus messageBus)
     {
@@ -20,7 +21,6 @@ public class RiskCalculator : IRiskCalculator
     
     public void Start()
     {   
- 
         
         // TODO retrieve all clients currently in book, so we can start to calculate their risk already
         // TODO also retrieve their book to keep in cache, so that clientAPI can get it straight from here. 
@@ -39,7 +39,7 @@ public class RiskCalculator : IRiskCalculator
         }
         else
         {
-            var topic = TopicGenerator.TopicForClientOrderEnded(order.ClientId);
+            var topic = TopicGenerator.TopicForClientOrderEnded(order.ClientId.ToString());
             order.Status = OrderStatus.Rejected;
             order.ErrorMesssage = "Insufficient Funds";
             _messageBus.Publish(topic, order, isTransient: true);

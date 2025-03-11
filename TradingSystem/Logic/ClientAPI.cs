@@ -27,7 +27,8 @@ public class ClientAPI : IClient
         _tradingOptions = new HashSet<StockOptions>();
         _clients = new List<Delegate>();
         _messageBus = messageBus;
-        _messageBus.Subscribe<HashSet<StockOptions>>("allInstruments", Id, stockOptions =>
+        var topic = TopicGenerator.TopicForAllInstruments();
+        _messageBus.Subscribe<HashSet<StockOptions>>(topic, Id, stockOptions =>
         {
             Console.WriteLine("ClientAPI found messages" + stockOptions);
             _tradingOptions = stockOptions;
@@ -60,7 +61,7 @@ public class ClientAPI : IClient
     public void HandleOrder(Order order, Action<Order> callback)
     {
         var topicToPublish = TopicGenerator.TopicForClientBuyOrder();
-        var topicToSubscribe = TopicGenerator.TopicForClientOrderEnded(order.ClientId);
+        var topicToSubscribe = TopicGenerator.TopicForClientOrderEnded(order.ClientId.ToString());
         
         _messageBus.Subscribe(topicToSubscribe, Id, callback);
         
