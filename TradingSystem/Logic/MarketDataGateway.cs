@@ -10,7 +10,7 @@ public interface IMarketDataGateway
 }
 
 
-public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ, IBook book) : IMarketDataGateway
+public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ) : IMarketDataGateway
 {
     private HashSet<StockOptions> _stockOptions = new HashSet<StockOptions>();
     private HashSet<string> _instrumentIds = new HashSet<string>();
@@ -20,7 +20,6 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
 
     public void Start()
     {
-        book.resetDB();
         messageBus.Subscribe<HashSet<StockOptions>>("allInstruments", Id, stocks =>
         {
             _stockOptions = stocks;

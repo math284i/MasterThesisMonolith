@@ -22,4 +22,14 @@ public class TopicGenerator
         return "buyOrderApproved";
     }
     
+    public static string TopicForLoginRequest()
+    {
+        return "loginRequested";
+    }
+
+    public static string TopicForLoginResponse()
+    {
+        return "loginResponded";
+    }
+
 }
