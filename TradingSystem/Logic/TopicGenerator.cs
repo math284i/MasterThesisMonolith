@@ -11,4 +11,15 @@ public class TopicGenerator
     {
         return "marketPrice" + instrument;
     }
+
+    public static string TopicForClientBuyOrder()
+    {
+        return "buyOrder";
+    }
+
+    public static string TopicForClientBuyOrderApproved()
+    {
+        return "buyOrderApproved";
+    }
+    
 }

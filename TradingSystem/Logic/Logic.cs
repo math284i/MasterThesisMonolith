@@ -7,12 +7,20 @@ public class Logic : IHostedService
     private readonly ILogger<Logic> _logger;
     private readonly IPricerEngine _pricerEngine;
     private readonly IMarketDataGateway _marketDataGateway;
+    private readonly IRiskCalculator _riskCalculator;
+    private readonly IExecutionHandler _executionHandler;
 
-    public Logic(ILogger<Logic> logger, IPricerEngine pricerEngine, IMarketDataGateway marketDataGateway)
+    public Logic(ILogger<Logic> logger
+        , IPricerEngine pricerEngine
+        , IMarketDataGateway marketDataGateway
+        , IRiskCalculator riskCalculator
+        , IExecutionHandler executionHandler)
     {
         _logger = logger;
         _pricerEngine = pricerEngine;
         _marketDataGateway = marketDataGateway;
+        _riskCalculator = riskCalculator;
+        _executionHandler = executionHandler;
     }
     
     public Task StartAsync(CancellationToken cancellationToken)
@@ -21,6 +29,8 @@ public class Logic : IHostedService
         
         _pricerEngine.Start();
         _marketDataGateway.Start();
+        _riskCalculator.Start();
+        _executionHandler.Start();
         
         _logger.ServiceStarted();
         
@@ -33,6 +43,8 @@ public class Logic : IHostedService
         
         _pricerEngine.Stop();
         _marketDataGateway.Stop();
+        _riskCalculator.Stop();
+        _executionHandler.Stop();
         
         _logger.ServiceStopped();
         

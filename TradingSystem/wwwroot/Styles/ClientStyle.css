@@ -32,11 +32,7 @@ h2 {
 .login-btn:hover {
     box-shadow: 0 12px 16px 0 rgba(0,0,0,0.24), 0 17px 50px 0 rgba(0,0,0,0.19);
 }
-.simulate-btn {
-    background-color: white;
-    color: black;
-    border: 2px solid black;
-}
+
 .input-field {
     padding: 10px;
     border-radius: 6px;
@@ -45,6 +41,45 @@ h2 {
     text-align: center;
     font-size: 1rem;
     margin-bottom: 10px;
+}
+
+/* General button styling */
+.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: bold;
+    padding: 12px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease-in-out;
+    border: none;
+}
+
+/* Simulate Price Button */
+.simulate-btn {
+    background: linear-gradient(135deg, #FFA726, #EF6C00);
+    color: white;
+    border: none;
+}
+
+.simulate-btn:hover {
+    background: linear-gradient(135deg, #FF9800, #E65100);
+    transform: scale(1.05);
+}
+
+/* Log Out Button */
+.logout-btn {
+    background: linear-gradient(135deg, #D32F2F, #B71C1C);
+    color: white;
+    border: none;
+    margin-top: 15px;
+}
+
+.logout-btn:hover {
+    background: linear-gradient(135deg, #F44336, #D32F2F);
+    transform: scale(1.05);
 }
 
 /* Stock section */
@@ -133,4 +168,22 @@ h2 {
 .stock-price {
     color: green;
     font-weight: bold;
+}
+
+.quantity-input {
+    width: 50px;
+    margin-right: 10px;
+}
+
+.buy-btn {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.buy-btn:hover {
+    background-color: #218838;
 }

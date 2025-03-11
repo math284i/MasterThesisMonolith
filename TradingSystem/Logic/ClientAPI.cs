@@ -7,11 +7,11 @@ namespace TradingSystem.Logic;
 public interface IClient
 {
     public HashSet<StockOptions> GetStockOptions<T>(Action<T> client);
-    public void HandleOrder();
+    public void HandleOrder(Order order);
 
     public void Login(string clientId, string password, Action<bool> callback);
-    
-    public void Logout();
+
+    public void Logout(Action<bool> callback);
     void StreamPrice(StreamInformation info, Action<StockOptions> updatePrice);
 }
 
@@ -57,9 +57,10 @@ public class ClientAPI : IClient
         }
     }
 
-    public void HandleOrder()
+    public void HandleOrder(Order order)
     {
-        throw new NotImplementedException();
+        var topic = TopicGenerator.TopicForClientBuyOrder();
+        _messageBus.Publish(topic, order, isTransient: true);
     }
 
     public void Login(string clientId, string password, Action<bool> callback)
@@ -67,8 +68,8 @@ public class ClientAPI : IClient
         callback.Invoke(string.CompareOrdinal(clientId, password) == 0);
     }
 
-    public void Logout()
+    public void Logout(Action<bool> callback)
     {
-        throw new NotImplementedException();
+        callback.Invoke(false);
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace TradingSystem.Logic
 {
@@ -8,16 +9,18 @@ namespace TradingSystem.Logic
     {
         void Subscribe<T>(string key, string subscriberId, Action<T> handler);
         void Unsubscribe(string key, string subscriberId);
-        void Publish<T>(string key, T message);
+        void Publish<T>(string key, T message, bool isTransient = false);
 
-        public Dictionary<string, List<string>> GetSubscribers();
-        public Dictionary<string, object> GetMessages();
+        Dictionary<string, List<string>> GetSubscribers();
+        Dictionary<string, object> GetPersistentMessages();
+        Dictionary<string, List<object>> GetTransientMessages();
     }
 
     public class MessageBus : IMessageBus
     {
         private readonly ConcurrentDictionary<string, Dictionary<string, Delegate>> _subscribers = new();
-        private readonly ConcurrentDictionary<string, object> _messagesOnTheBus = new();
+        private readonly ConcurrentDictionary<string, object> _persistentMessages = new();
+        private readonly ConcurrentDictionary<string, ConcurrentQueue<object>> _transientMessages = new();
 
         public void Subscribe<T>(string key, string subscriberId, Action<T> handler)
         {
@@ -27,8 +30,8 @@ namespace TradingSystem.Logic
                 handlers[subscriberId] = handler;
             }
 
-            // If a message already exists on the bus for this key, deliver it immediately
-            if (_messagesOnTheBus.TryGetValue(key, out var existingMessage) && existingMessage is T typedMessage)
+            // Deliver existing persistent message
+            if (_persistentMessages.TryGetValue(key, out var existingMessage) && existingMessage is T typedMessage)
             {
                 handler(typedMessage);
             }
@@ -49,22 +52,39 @@ namespace TradingSystem.Logic
             }
         }
 
-        public void Publish<T>(string key, T message)
+        public void Publish<T>(string key, T message, bool isTransient = false)
         {
-            _messagesOnTheBus.AddOrUpdate(key, message, (_, _) => message);
-
+            if (isTransient)
+            {
+                var queue = _transientMessages.GetOrAdd(key, _ => new ConcurrentQueue<object>());
+                queue.Enqueue(message);
+            }
+            else
+            {
+                _persistentMessages.AddOrUpdate(key, message, (_, _) => message);
+            }
+            
             if (_subscribers.TryGetValue(key, out var handlers))
             {
                 lock (handlers)
                 {
                     foreach (var handler in handlers.Values)
                     {
-                        ((Action<T>)handler)(message);
+                        if (isTransient && _transientMessages.TryGetValue(key, out var queue))
+                        {
+                            if (queue.TryDequeue(out var dequeuedMessage) && dequeuedMessage is T transientMessage)
+                            {
+                                ((Action<T>)handler)(transientMessage);
+                            }
+                        }
+                        else
+                        {
+                            ((Action<T>)handler)(message);
+                        }
                     }
                 }
             }
         }
-        
         public Dictionary<string, List<string>> GetSubscribers()
         {
             return _subscribers.ToDictionary(
@@ -73,10 +93,17 @@ namespace TradingSystem.Logic
             );
         }
 
-        public Dictionary<string, object> GetMessages()
+        public Dictionary<string, object> GetPersistentMessages()
         {
-            return new Dictionary<string, object>(_messagesOnTheBus);
+            return new Dictionary<string, object>(_persistentMessages);
         }
         
+        public Dictionary<string, List<object>> GetTransientMessages()
+        {
+            return _transientMessages.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.ToList()
+            );
+        }
     }
 }

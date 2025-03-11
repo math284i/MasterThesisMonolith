@@ -20,6 +20,8 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection SetupTradingSystem(this IServiceCollection services)
     {
         services.AddSingleton<IMessageBus, MessageBus>();
+        services.AddSingleton<IRiskCalculator, RiskCalculator>();
+        services.AddSingleton<IExecutionHandler, ExecutionHandler>();
         services.AddSingleton<INordea, NordeaAPI>();
         services.AddSingleton<IJPMorgan, JPMorganAPI>();
         services.AddSingleton<INASDAQ, NASDAQAPI>();
