@@ -58,8 +58,13 @@ public class ExecutionHandler : IExecutionHandler
 
         if (matchingStock.Price == order.Stock.Price)
         {
-            // Here check if we should book it our self or we should hedge it to the market
+            // TODO Here check if we should book it our self or we should hedge it to the market
             _logger.LogInformation($"Letting {order.ClientId} buy order {order.Stock.InstrumentId} at price {order.Stock.Price} quantity {order.Stock.Quantity}");
+            
+            // TODO if we send it to the market, wait for their acceptance before telling the client it was succeded.
+            var topic = TopicGenerator.TopicForClientOrderEnded(order.ClientId);
+            order.Status = OrderStatus.Success;
+            _messageBus.Publish(topic, order, isTransient: true);
         }
     }
 

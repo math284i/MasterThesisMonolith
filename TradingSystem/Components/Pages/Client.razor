@@ -88,6 +88,7 @@
             </div>
             @if (_isDevelopment)
             {
+                <h5>@_tmpOrderstatus</h5>
                 <h3>Put new price on bus:</h3>
                 <input class="input-field" @bind="_developmentInstrumentId" />
                 <input class="input-field" @bind="_developmentPrice" />
@@ -110,6 +111,7 @@
     private float _developmentPrice;
     private string _clientId = "";
     private string _clientPassword = "";
+    private string _tmpOrderstatus = "";
     private readonly Dictionary<string, List<StockOptions>> _selectedStocksPerClient = new();
 
     private void Login()
@@ -191,7 +193,12 @@
             Side = side,
             Stock = stock
         };
-        ClientService.HandleOrder(order);
+        ClientService.HandleOrder(order, OrderHandled);
+    }
+
+    private void OrderHandled(Order order)
+    {
+        _tmpOrderstatus = order.Status.ToString();
     }
     
     private void SimulateNewPrice()

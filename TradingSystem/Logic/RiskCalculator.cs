@@ -37,6 +37,13 @@ public class RiskCalculator : IRiskCalculator
             var topic = TopicGenerator.TopicForClientBuyOrderApproved();
             _messageBus.Publish(topic, order, isTransient: true);
         }
+        else
+        {
+            var topic = TopicGenerator.TopicForClientOrderEnded(order.ClientId);
+            order.Status = OrderStatus.Rejected;
+            order.ErrorMesssage = "Insufficient Funds";
+            _messageBus.Publish(topic, order, isTransient: true);
+        }
     }
 
     public void Stop()

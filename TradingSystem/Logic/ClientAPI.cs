@@ -7,7 +7,7 @@ namespace TradingSystem.Logic;
 public interface IClient
 {
     public HashSet<StockOptions> GetStockOptions<T>(Action<T> client);
-    public void HandleOrder(Order order);
+    public void HandleOrder(Order order, Action<Order> callback);
 
     public void Login(string clientId, string password, Action<bool> callback);
 
@@ -57,10 +57,14 @@ public class ClientAPI : IClient
         }
     }
 
-    public void HandleOrder(Order order)
+    public void HandleOrder(Order order, Action<Order> callback)
     {
-        var topic = TopicGenerator.TopicForClientBuyOrder();
-        _messageBus.Publish(topic, order, isTransient: true);
+        var topicToPublish = TopicGenerator.TopicForClientBuyOrder();
+        var topicToSubscribe = TopicGenerator.TopicForClientOrderEnded(order.ClientId);
+        
+        _messageBus.Subscribe(topicToSubscribe, Id, callback);
+        
+        _messageBus.Publish(topicToPublish, order, isTransient: true);
     }
 
     public void Login(string clientId, string password, Action<bool> callback)

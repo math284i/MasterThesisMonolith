@@ -21,5 +21,10 @@ public class TopicGenerator
     {
         return "buyOrderApproved";
     }
+
+    public static string TopicForClientOrderEnded(string clientId)
+    {
+        return "buyOrderEnded" + clientId;
+    }
     
 }
