@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using TradingSystem.Data;
 
@@ -73,11 +75,12 @@ public class DBHandler : IDBHandler
     public void addClientCustomer(string name, string username, string password)
     {
         DatabaseData db = deserializeDB();
-
+        /*
         if (db.customers.Exists(x => x.username.Equals(username)) || db.clients.Exists(x => x.name.Equals(name)))
         {
             return;
         }
+        */
 
         Guid ID = Guid.NewGuid();
 
@@ -86,7 +89,7 @@ public class DBHandler : IDBHandler
         {
             clientId = ID,
             username = username,
-            password = password
+            password = hashPassword(password, ID, db)
         };
         db.customers.Add(customer);
 
@@ -95,7 +98,7 @@ public class DBHandler : IDBHandler
             clientId = ID,
             name = name,
             balance = 100.0f, //TODO: Figure out a good starting balance for new clients
-            tier = "Average" //TODO: Figure out a good tier system
+            tier = "Regular" //TODO: Figure out a good tier system
         };
         db.clients.Add(client);
 
@@ -253,7 +256,7 @@ public class DBHandler : IDBHandler
         var password = info.Password;
 
         //TODO: Hash password with same algorithm as when the customer was created, before checking
-        var customer = db.customers.Find(x => x.username.Equals(username) && x.password.Equals(password));
+        var customer = db.customers.Find(x => x.username.Equals(username) && x.password.Equals(hashPassword(password,x.clientId, db)));
         info.IsAuthenticated = customer != null;
         info.ClientId = customer == null ?  Guid.Empty : customer.clientId;
 
@@ -269,7 +272,8 @@ public class DBHandler : IDBHandler
             clients = new List<ClientData>(),
             customers = new List<CustomerData>(),
             transactions = new List<TransactionData>(),
-            holdings = new List<HoldingData>()
+            holdings = new List<HoldingData>(),
+            Salts = new List<SaltData>()
         };
         db.clients.Add(new ClientData
         {
@@ -279,38 +283,11 @@ public class DBHandler : IDBHandler
             tier = "internal"
         });
 
-        Guid user1 = Guid.NewGuid();
-        db.clients.Add(new ClientData
-        {
-            clientId = user1,
-            name = "Anders",
-            balance = 100.0f,
-            tier = "standard"
-        });
-        db.customers.Add(new CustomerData
-        {
-            clientId = user1,
-            username = "KP",
-            password = "KP"
-        });
-
-        Guid user2 = Guid.NewGuid();
-        db.clients.Add(new ClientData
-        {
-            clientId = user2,
-            name = "Mathias",
-            balance = 100.0f,
-            tier = "standard"
-        });
-        db.customers.Add(new CustomerData
-        {
-            clientId = user2,
-            username = "Dyberg",
-            password = "Dyberg"
-        });
-
         //TODO: Add initial holdings
         serialize(db);
+
+        addClientCustomer("Anders", "KP", "KP");
+        addClientCustomer("Mathias", "Dyberg", "KP");
         return;
     }
 
@@ -325,5 +302,23 @@ public class DBHandler : IDBHandler
     {
         string jsonString = File.ReadAllText(databaseFilePath);
         return JsonSerializer.Deserialize<DatabaseData>(jsonString)!;
+    }
+
+    private string hashPassword(string password, Guid clientId, DatabaseData db)
+    {
+        var salt = db.Salts.Find(x => x.ClientId == clientId);
+        if (salt == null)
+        {
+            Console.WriteLine("User: " + clientId.ToString() + " Made a new salt");
+            salt = new SaltData
+            {
+                ClientId = clientId,
+                Salt = System.Text.Encoding.Default.GetString(RandomNumberGenerator.GetBytes(16))
+            };
+            db.Salts.Add(salt);
+        }
+        string saltedPassword = salt.Salt + password;
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(saltedPassword));
+        return System.Text.Encoding.Default.GetString(hash);
     }
 }
