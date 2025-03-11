@@ -89,6 +89,7 @@
             @if (_isDevelopment)
             {
                 <h5>@_tmpOrderstatus</h5>
+                <h5>@_tmpErrorMessage</h5>
                 <h3>Put new price on bus:</h3>
                 <input class="input-field" @bind="_developmentInstrumentId" />
                 <input class="input-field" @bind="_developmentPrice" />
@@ -113,6 +114,7 @@
     private string _clientUsername = "";
     private string _clientPassword = "";
     private string _tmpOrderstatus = "";
+    private string _tmpErrorMessage = "";
     private readonly Dictionary<Guid, List<StockOptions>> _selectedStocksPerClient = new();
 
     private void Login()
@@ -204,6 +206,7 @@
     private void OrderHandled(Order order)
     {
         _tmpOrderstatus = order.Status.ToString();
+        _tmpErrorMessage = order.ErrorMesssage;
     }
     
     private void SimulateNewPrice()

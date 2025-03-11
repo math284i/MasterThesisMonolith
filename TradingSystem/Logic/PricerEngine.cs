@@ -47,7 +47,7 @@ public class PricerEngine : IPricerEngine
             var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(newStock.InstrumentId);
             _messageBus.Subscribe<StockOptions>(stockTopic, Id, UpdatePrice);
         }
-        var topic = TopicGenerator.TopicForClientBuyOrder();
+        var topic = TopicGenerator.TopicForAllInstruments();
         _messageBus.Publish(topic, _referencePrices);
         _logger.PricerEngineStarted();
     }

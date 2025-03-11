@@ -47,4 +47,9 @@ public class TopicGenerator
         return "allInstruments";
     }
 
+    public static string TopicForBookingOrder()
+    {
+        return "BookOrder";
+    }
+
 }
