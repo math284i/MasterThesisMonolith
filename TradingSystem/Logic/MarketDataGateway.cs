@@ -21,13 +21,6 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
     public void Start()
     {
         book.resetDB();
-        //book.addClientCustomer("Anders", "KP", "KP");
-        //book.addTransaction(book.getClientGuid("Danske Bank"), Guid.NewGuid(), "GME", 10, 10.0f, true);
-        //book.addTransaction(book.getClientGuid("Anders"), book.getClientGuid("Danske Bank"), "GME", 5, 10.0f, true);
-        //book.addTransaction(book.getClientGuid("Anders"), book.getClientGuid("Danske Bank"), "GME", 5, 10.0f, false);
-        //var trans = book.getClientTransactions("Danske Bank");
-        //Console.WriteLine("Good Login: " + book.checkLogin("KP", "KP"));
-        //Console.WriteLine("Bad login: " + book.checkLogin("KP", "Dyberg"));
         messageBus.Subscribe<HashSet<StockOptions>>("allInstruments", Id, stocks =>
         {
             _stockOptions = stocks;

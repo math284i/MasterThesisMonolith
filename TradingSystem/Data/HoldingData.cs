@@ -1,6 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Conventions;
-
-namespace TradingSystem.Data
+﻿namespace TradingSystem.Data
 {
     public class HoldingData
     {

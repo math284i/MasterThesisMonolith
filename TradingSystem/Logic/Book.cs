@@ -15,6 +15,8 @@ public interface IBook
     public List<TransactionData> getClientTransactions(string name);
     public List<HoldingData> getClientHoldings(string name);
 
+    public List<ClientData> getAllClients();
+
     public bool checkLogin(string username, string password);
 
     public void resetDB();
@@ -214,6 +216,12 @@ public class Book() : IBook
         }
         List<HoldingData> holdings = db.holdings.FindAll(x => x.clientId == client.clientId);
         return holdings;
+    }
+
+    public List<ClientData> getAllClients()
+    {
+        DatabaseData db = deserializeDB();
+        return db.clients;
     }
 
     public bool checkLogin(string username, string password)
