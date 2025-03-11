@@ -1,13 +1,36 @@
 {
   "clients": [
     {
-      "clientId": "8b7d8638-76e8-4530-b5dc-b4d5fd75ea23",
+      "clientId": "bb6f3c9c-b459-4f8a-bd10-3d162855b0b8",
       "name": "Danske Bank",
       "balance": 1000000,
       "tier": "internal"
+    },
+    {
+      "clientId": "98e75775-51d8-4b38-8927-a5da9dc42610",
+      "name": "Anders",
+      "balance": 100,
+      "tier": "standard"
+    },
+    {
+      "clientId": "197451f6-03c6-4034-906f-6beaf20a1edc",
+      "name": "Mathias",
+      "balance": 100,
+      "tier": "standard"
     }
   ],
-  "customers": [],
+  "customers": [
+    {
+      "clientId": "98e75775-51d8-4b38-8927-a5da9dc42610",
+      "username": "KP",
+      "password": "KP"
+    },
+    {
+      "clientId": "197451f6-03c6-4034-906f-6beaf20a1edc",
+      "username": "Dyberg",
+      "password": "Dyberg"
+    }
+  ],
   "holdings": [],
   "transactions": []
 }
