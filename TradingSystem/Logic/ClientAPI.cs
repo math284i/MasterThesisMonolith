@@ -9,7 +9,7 @@ public interface IClient
     public HashSet<StockOptions> GetStockOptions<T>(Action<T> client);
     public void HandleOrder(Order order, Action<Order> callback);
 
-    public void Login(string clientId, string password, Action<bool> callback);
+    public void Login(string clientId, string password, Action<LoginInfo> callback);
 
     public void Logout(Action<bool> callback);
     void StreamPrice(StreamInformation info, Action<StockOptions> updatePrice);
@@ -49,11 +49,11 @@ public class ClientAPI : IClient
         var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(info.InstrumentId);
         if (info.EnableLivePrices)
         {
-            _messageBus.Subscribe(stockTopic, info.ClientId, updatePrice);
+            _messageBus.Subscribe(stockTopic, info.ClientId.ToString(), updatePrice);
         }
         else
         {
-            _messageBus.Unsubscribe(stockTopic, info.ClientId);
+            _messageBus.Unsubscribe(stockTopic, info.ClientId.ToString());
         }
     }
 
@@ -67,9 +67,17 @@ public class ClientAPI : IClient
         _messageBus.Publish(topicToPublish, order, isTransient: true);
     }
 
-    public void Login(string clientId, string password, Action<bool> callback)
+    public void Login(string username, string password, Action<LoginInfo> callback)
     {
-        callback.Invoke(string.CompareOrdinal(clientId, password) == 0);
+        var requestTopic = TopicGenerator.TopicForLoginRequest();
+        var responseTopic = TopicGenerator.TopicForLoginResponse();
+        var info = new LoginInfo
+        {
+            Username = username,
+            Password = password
+        };
+        _messageBus.Subscribe(responseTopic, Id, callback);
+        _messageBus.Publish(requestTopic, info, isTransient: true);
     }
 
     public void Logout(Action<bool> callback)

@@ -3,8 +3,10 @@ using TradingSystem.Data;
 
 namespace TradingSystem.Logic;
 
-public interface IBook
+public interface IDBHandler
 {
+    public void Start();
+    public void Stop();
     public void addClient(string name);
     public void addClientCustomer(string name, string username, string password); //All clients added are also customers
     public void addTransaction(Guid buyerId, Guid sellerId, string instrumentId, int size, float price, bool succeeded);
@@ -17,15 +19,34 @@ public interface IBook
 
     public List<ClientData> getAllClients();
 
-    public bool checkLogin(string username, string password);
-
     public void resetDB();
 }
 
-public class Book() : IBook
+public class DBHandler : IDBHandler
 {
     private string databaseFilePath = ".\\Data\\QuoteUnquoteDB.json";
-    
+
+    private readonly IMessageBus _messageBus;
+    private const string Id = "DBHandler";
+
+    public DBHandler(IMessageBus messagebus)
+    {
+        _messageBus = messagebus;
+    }
+
+    public void Start()
+    {
+        resetDB();
+        var topic = TopicGenerator.TopicForLoginRequest();
+        _messageBus.Subscribe<LoginInfo>(topic, Id, checkLogin);
+    }
+
+    public void Stop()
+    {
+        var topic = TopicGenerator.TopicForLoginRequest();
+        _messageBus.Unsubscribe(topic, Id);
+    }
+
     public void addClient(string name)
     {
         DatabaseData db = deserializeDB();
@@ -224,12 +245,21 @@ public class Book() : IBook
         return db.clients;
     }
 
-    public bool checkLogin(string username, string password)
+    private void checkLogin(LoginInfo info)
     {
         DatabaseData db = deserializeDB();
 
+        var username = info.Username;
+        var password = info.Password;
+
         //TODO: Hash password with same algorithm as when the customer was created, before checking
-        return db.customers.Exists(x => x.username.Equals(username) && x.password.Equals(password));
+        var customer = db.customers.Find(x => x.username.Equals(username) && x.password.Equals(password));
+        info.IsAuthenticated = customer != null;
+        info.ClientId = customer == null ?  Guid.Empty : customer.clientId;
+
+        var topic = TopicGenerator.TopicForLoginResponse();
+        _messageBus.Publish(topic, info, isTransient: true);
+        return;
     }
 
     public void resetDB()
@@ -247,6 +277,36 @@ public class Book() : IBook
             name = "Danske Bank",
             balance = 1000000.0f,
             tier = "internal"
+        });
+
+        Guid user1 = Guid.NewGuid();
+        db.clients.Add(new ClientData
+        {
+            clientId = user1,
+            name = "Anders",
+            balance = 100.0f,
+            tier = "standard"
+        });
+        db.customers.Add(new CustomerData
+        {
+            clientId = user1,
+            username = "KP",
+            password = "KP"
+        });
+
+        Guid user2 = Guid.NewGuid();
+        db.clients.Add(new ClientData
+        {
+            clientId = user2,
+            name = "Mathias",
+            balance = 100.0f,
+            tier = "standard"
+        });
+        db.customers.Add(new CustomerData
+        {
+            clientId = user2,
+            username = "Dyberg",
+            password = "Dyberg"
         });
 
         //TODO: Add initial holdings

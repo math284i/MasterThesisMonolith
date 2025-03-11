@@ -14,7 +14,7 @@
     <header class="header">
         <h1>Stock Trading Dashboard</h1>
     </header>
-    
+
     <div class="card">
 
         @if (!_isAuthenticated)
@@ -22,7 +22,7 @@
             <div class="auth-container">
                 <p>Enter your access code to continue:</p>
                 <div class="input-group">
-                    <input class="input-field" @bind="_clientId"/>
+                    <input class="input-field" @bind="_clientUsername"/>
                     <input type="password" class="input-field" @bind="_clientPassword"/>
                 </div>
                 <button class="login-btn" @onclick="Login">
@@ -33,7 +33,7 @@
         else
         {
             <div class="content">
-                <h3>Logged in as <span class="highlight">@_clientId</span></h3>
+                <h3>Logged in as <span class="highlight">@_clientUsername</span></h3>
                 <div class="stocks-container">
                     <!-- Stock Selection -->
                     <div class="stock-selection">
@@ -104,33 +104,38 @@
 </div>
 
 @code {
-    private Dictionary<string, HashSet<StockOptions>> stocks = new();
+    private Dictionary<Guid, HashSet<StockOptions>> stocks = new();
     private bool _isAuthenticated;
     private bool _isDevelopment = true;
     private string _developmentInstrumentId = "";
     private float _developmentPrice;
-    private string _clientId = "";
+    private Guid _clientId;
+    private string _clientUsername = "";
     private string _clientPassword = "";
     private string _tmpOrderstatus = "";
-    private readonly Dictionary<string, List<StockOptions>> _selectedStocksPerClient = new();
+    private readonly Dictionary<Guid, List<StockOptions>> _selectedStocksPerClient = new();
 
     private void Login()
     {
-        ClientService.Login(_clientId, _clientPassword, LoginSuccess);
+        ClientService.Login(_clientUsername, _clientPassword, LoginSuccess);
     }
-    
-    private void LoginSuccess(bool success)
+
+    private void LoginSuccess(LoginInfo info)
     {
-        _isAuthenticated = success;
-        stocks[_clientId] = ClientService.GetStockOptions<HashSet<StockOptions>>(stockOptions =>
+        _isAuthenticated = info.IsAuthenticated;
+        if (_isAuthenticated)
         {
-            stocks[_clientId] = stockOptions;
-        });
-        
-        if (!_selectedStocksPerClient.ContainsKey(_clientId))
-        {
-            _selectedStocksPerClient[_clientId] = new List<StockOptions>();
-        }
+            _clientId = info.ClientId;
+            stocks[_clientId] = ClientService.GetStockOptions<HashSet<StockOptions>>(stockOptions =>
+            {
+                stocks[_clientId] = stockOptions;
+            });
+
+            if (!_selectedStocksPerClient.ContainsKey(_clientId))
+            {
+                _selectedStocksPerClient[_clientId] = new List<StockOptions>();
+            }
+        } 
     }
     
     private void UpdateSelectedStocks(ChangeEventArgs args, StockOptions stock)
@@ -185,7 +190,7 @@
             return;
         }
 
-        Console.WriteLine($"Buying {stock.Quantity} of {stock.InstrumentId} at {stock.Price:C} for client {_clientId}");
+        Console.WriteLine($"Buying {stock.Quantity} of {stock.InstrumentId} at {stock.Price:C} for client {_clientId.ToString()}");
         const OrderSide side = OrderSide.RightSided;
         var order = new Order
         {

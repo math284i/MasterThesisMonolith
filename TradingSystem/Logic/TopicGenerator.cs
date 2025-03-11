@@ -27,4 +27,14 @@ public class TopicGenerator
         return "buyOrderEnded" + clientId;
     }
     
+    public static string TopicForLoginRequest()
+    {
+        return "loginRequested";
+    }
+
+    public static string TopicForLoginResponse()
+    {
+        return "loginResponded";
+    }
+
 }
