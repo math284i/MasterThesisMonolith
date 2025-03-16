@@ -2,10 +2,10 @@
 {
     public class DatabaseData
     {
-        public List<ClientData> clients { get; set; }
-        public List<CustomerData> customers { get; set; }
-        public List<HoldingData> holdings { get; set; }
-        public List<TransactionData> transactions { get; set; }
+        public List<ClientData> Clients { get; set; }
+        public List<CustomerData> Customers { get; set; }
+        public List<HoldingData> Holdings { get; set; }
+        public List<TransactionData> Transactions { get; set; }
         public List<SaltData> Salts { get; set; }
     }
 }
