@@ -60,7 +60,7 @@ public class ExecutionHandler : IExecutionHandler
         var transaction = new TransactionData
         {
             InstrumentId = order.Stock.InstrumentId,
-            Size = order.Stock.Quantity,
+            Size = order.Stock.Size,
             Price = order.Stock.Price,
         };
 
