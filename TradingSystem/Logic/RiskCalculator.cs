@@ -87,10 +87,11 @@ public class RiskCalculator : IRiskCalculator
         {
             // Sell
             var holding = _clientHoldings[order.ClientId].Find(h => h.InstrumentId == order.Stock.InstrumentId);
+            Console.WriteLine($"Riskcalculator holding: {holding.ClientId} {holding.InstrumentId}, {holding.Size}");
             var topic = "";
             if (holding != null)
             {
-                if (holding.Size <= order.Stock.Size)
+                if (holding.Size >= order.Stock.Size)
                 {
                     topic = TopicGenerator.TopicForClientBuyOrderApproved();
                 }
