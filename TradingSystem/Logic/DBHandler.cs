@@ -175,7 +175,7 @@ public class DBHandler : IDBHandler
         Serialize(db);
         var topicBuyer = TopicGenerator.TopicForHoldingOfClient(trans.BuyerId.ToString());
         _messageBus.Publish(topicBuyer, GetClientHoldings(trans.BuyerId));
-        var currentHoldSeller = db.Holdings.Find(x => x.ClientId == trans.SellerId);
+        var currentHoldSeller = db.Holdings.Find(x => x.ClientId == trans.SellerId && x.InstrumentId == trans.InstrumentId);
         if (currentHoldSeller == null)
         {
             HoldingData newHolding = new HoldingData
