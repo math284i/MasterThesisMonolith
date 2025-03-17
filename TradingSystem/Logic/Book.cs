@@ -36,7 +36,7 @@ public class Book : IBook
 
     public void BookOrder(TransactionData transaction)
     {
-        _logger.LogInformation("Book order called");
+        _logger.LogInformation("Book order called for {instrumentId}", transaction.InstrumentId);
         _dbHandler.AddTransaction(transaction);
     }
 

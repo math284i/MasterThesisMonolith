@@ -96,29 +96,21 @@
 
                 @if (_holdings.Any())
                 {
-                    <table class="holdings-table">
-                        <thead>
-                        <tr>
-                            <th>Instrument</th>
-                            <th>Amount</th>
-                        </tr>
-                        </thead>
-                        <tbody>
+                    <div class="holdings-list">
                         @foreach (var holding in _holdings)
                         {
-                            <tr>
-                                <td>@holding.InstrumentId</td>
-                                <td>@holding.Size</td>
+                            <div class="holding-item" key="@holding.InstrumentId">
+                                <span class="stock-name">@holding.InstrumentId</span>
+                                <span class="stock-amount">Amount: @holding.Size</span>
 
-                                <input type="number" class="quantity-input" min="1"/>
-                                
-                                <button class="buy-btn" @onclick="() => SellStock(holding)">
+                                <input type="number" class="quantity-input" min="1" @bind="holding.SellSize"/>
+
+                                <button class="sell-btn" @onclick="() => SellStock(holding, holding.SellSize)">
                                     Sell
                                 </button>
-                            </tr>
+                            </div>
                         }
-                        </tbody>
-                    </table>
+                    </div>
                 }
                 else
                 {
@@ -133,13 +125,13 @@
                 <h3>Put new price on bus:</h3>
                 <input class="input-field" @bind="_developmentInstrumentId" />
                 <input class="input-field" @bind="_developmentPrice" />
-                <button class="button simulate-btn" @onclick="SimulateNewPrice">
-                    <span class="material-icons"></span> Simulate Price
+                <button class="btn btn-warning simulate-btn shadow-sm" @onclick="SimulateNewPrice">
+                    <i class="bi bi-graph-up"></i> Simulate Price
                 </button>
             }
-            <button class="button logout-btn" @onclick="LogOut">
-                <span class="material-icons"></span> Log Out
-            </button>
+                <button class="btn btn-danger logout-btn shadow-sm" @onclick="LogOut">
+                    <i class="bi bi-box-arrow-right"></i> Log Out
+                </button>
         }
     </div>
 </div>
@@ -234,8 +226,6 @@
             Console.WriteLine("Cannot buy stock without a valid price.");
             return;
         }
-
-        Console.WriteLine($"Buying {stock.Size} of {stock.InstrumentId} at {stock.Price:C} for client {_clientId.ToString()}");
         const OrderSide side = OrderSide.RightSided;
         var order = new Order
         {
@@ -246,7 +236,7 @@
         ClientService.HandleOrder(order, OrderHandled);
     }
     
-    private void SellStock(HoldingData holdingData)
+    private void SellStock(HoldingData holdingData, int size)
     {
         var stock = _selectedStocksPerClient[_clientId].Find(s => s.InstrumentId == holdingData.InstrumentId);
         if (stock == null) return; //TODO toast
@@ -264,6 +254,7 @@
             Side = side,
             Stock = stock
         };
+        order.Stock.Size = size;
         ClientService.HandleOrder(order, OrderHandled);
     }
 
@@ -275,7 +266,6 @@
 
     private async void UpdateHolding(List<HoldingData> holdings)
     {
-        Console.WriteLine($"UI updating holding! for client {_clientId} holdings: {holdings.Count}");
         _holdings = holdings;
         await InvokeAsync(StateHasChanged);
     }

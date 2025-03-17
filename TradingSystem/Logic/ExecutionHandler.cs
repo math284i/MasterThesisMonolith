@@ -54,6 +54,7 @@ public class ExecutionHandler : IExecutionHandler
 
     private void HandleBuyOrder(Order order)
     {
+        Console.WriteLine($"Execution handler got order {order.Stock.InstrumentId}");
         var matchingStock = _stockOptions.SingleOrDefault(s => s.InstrumentId == order.Stock.InstrumentId);
         if (matchingStock == null) return;
         

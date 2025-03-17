@@ -132,6 +132,7 @@ public class DBHandler : IDBHandler
                 db.Clients.Remove(buyer);
                 buyer.Balance -= trans.Size * trans.Price;
                 db.Clients.Add(buyer);
+                Serialize(db);
                 var topic = TopicGenerator.TopicForHoldingOfClient(buyer.ClientId.ToString());
                 _messageBus.Publish(topic, GetClientHoldings(buyer.ClientId), isTransient: true);
             }
@@ -141,6 +142,7 @@ public class DBHandler : IDBHandler
                 db.Clients.Remove(seller);
                 seller.Balance += trans.Size * trans.Price;
                 db.Clients.Add(seller);
+                Serialize(db);
                 var topic = TopicGenerator.TopicForHoldingOfClient(seller.ClientId.ToString());
                 _messageBus.Publish(topic, GetClientHoldings(seller.ClientId), isTransient: true);
             }
@@ -151,6 +153,7 @@ public class DBHandler : IDBHandler
 
     private DatabaseData UpdateHoldings(DatabaseData db, TransactionData trans)
     {
+        Console.WriteLine($"DBHandler updating for {trans.InstrumentId}");
         var currentHoldBuyer = db.Holdings.Find(x => x.ClientId == trans.BuyerId && x.InstrumentId == trans.InstrumentId);
         if(currentHoldBuyer == null)
         {
@@ -168,6 +171,8 @@ public class DBHandler : IDBHandler
             currentHoldBuyer.Size += trans.Size;
             db.Holdings.Add(currentHoldBuyer);
         }
+
+        Serialize(db);
         var topicBuyer = TopicGenerator.TopicForHoldingOfClient(trans.BuyerId.ToString());
         _messageBus.Publish(topicBuyer, GetClientHoldings(trans.BuyerId));
         var currentHoldSeller = db.Holdings.Find(x => x.ClientId == trans.SellerId);
@@ -187,6 +192,7 @@ public class DBHandler : IDBHandler
             currentHoldSeller.Size -= trans.Size;
             db.Holdings.Add(currentHoldSeller);
         }
+        Serialize(db);
         var topicSeller = TopicGenerator.TopicForHoldingOfClient(trans.SellerId.ToString());
         _messageBus.Publish(topicSeller, GetClientHoldings(trans.SellerId));
         return db;
