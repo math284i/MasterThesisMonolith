@@ -90,7 +90,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="holdings-section">
                 <h4 class="section-title">Your Holdings</h4>
 
@@ -98,25 +98,25 @@
                 {
                     <table class="holdings-table">
                         <thead>
-                        <tr>
-                            <th>Instrument</th>
-                            <th>Amount</th>
-                        </tr>
+                            <tr>
+                                <th>Instrument</th>
+                                <th>Amount</th>
+                            </tr>
                         </thead>
                         <tbody>
-                        @foreach (var holding in _holdings)
-                        {
-                            <tr>
-                                <td>@holding.InstrumentId</td>
-                                <td>@holding.Size</td>
+                            @foreach (var holding in _holdings)
+                            {
+                                <tr>
+                                    <td>@holding.InstrumentId</td>
+                                    <td>@holding.Size</td>
 
-                                <input type="number" class="quantity-input" min="1"/>
-                                
-                                <button class="buy-btn" @onclick="() => SellStock(holding)">
-                                    Sell
-                                </button>
-                            </tr>
-                        }
+                                    <input type="number" class="quantity-input" min="1"/>
+
+                                    <button class="buy-btn" @onclick="() => SellStock(holding)">
+                                        Sell
+                                    </button>
+                                </tr>
+                            }
                         </tbody>
                     </table>
                 }
@@ -125,11 +125,11 @@
                     <p class="no-holdings">No holdings available.</p>
                 }
             </div>
-            
+
             @if (_isDevelopment)
             {
-                <h5>@_tmpOrderstatus</h5>
-                <h5>@_tmpErrorMessage</h5>
+                //<h5>@_tmpOrderstatus</h5>
+                //<h5>@_tmpErrorMessage</h5>
                 <h3>Put new price on bus:</h3>
                 <input class="input-field" @bind="_developmentInstrumentId" />
                 <input class="input-field" @bind="_developmentPrice" />
@@ -165,7 +165,7 @@
         ClientService.Login(_clientUsername, _clientPassword, LoginSuccess, UpdateHolding);
     }
 
-    private void LoginSuccess(LoginInfo info)
+    private async void LoginSuccess(LoginInfo info)
     {
         _isAuthenticated = info.IsAuthenticated;
         if (_isAuthenticated)
@@ -180,9 +180,12 @@
             {
                 _selectedStocksPerClient[_clientId] = new List<StockOptions>();
             }
-        } 
+        }else
+        {
+            await ToastService.Error("Error", "Login Failed - Incorrect username or password", autoHide: true);
+        }
     }
-    
+
     private void UpdateSelectedStocks(ChangeEventArgs args, StockOptions stock)
     {
         Console.WriteLine($"Updating stock: {stock.InstrumentId} enabled: {(bool)args.Value}");
@@ -194,12 +197,12 @@
             InstrumentId = stock.InstrumentId
         };
         stock.EnableLivePrices = enabled;
-        
+
         if (!_selectedStocksPerClient.ContainsKey(_clientId))
         {
             _selectedStocksPerClient[_clientId] = new List<StockOptions>();
         }
-        
+
         var selectedStocks = _selectedStocksPerClient[_clientId];
         if (stock.EnableLivePrices)
         {
@@ -212,7 +215,7 @@
         {
             selectedStocks.RemoveAll(s => s.InstrumentId == stock.InstrumentId);
         }
-        
+
         ClientService.StreamPrice(info, UpdatePrice);
     }
 
@@ -221,21 +224,20 @@
         if (!_selectedStocksPerClient.TryGetValue(_clientId, out var selectedStocks)) return;
 
         var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == stock.InstrumentId);
-        
+
         if (matchingStock == null) return;
         matchingStock.Price = stock.Price;
         await InvokeAsync(StateHasChanged);
     }
-    
-    private void BuyStock(StockOptions stock)
+
+    private async void BuyStock(StockOptions stock)
     {
         if (stock.Price == 0)
         {
-            Console.WriteLine("Cannot buy stock without a valid price.");
+            await ToastService.Error("Error", "Cannot buy stock without a valid price", autoHide: true);
             return;
         }
 
-        Console.WriteLine($"Buying {stock.Size} of {stock.InstrumentId} at {stock.Price:C} for client {_clientId.ToString()}");
         const OrderSide side = OrderSide.RightSided;
         var order = new Order
         {
@@ -245,18 +247,21 @@
         };
         ClientService.HandleOrder(order, OrderHandled);
     }
-    
-    private void SellStock(HoldingData holdingData)
+
+    private async void SellStock(HoldingData holdingData)
     {
         var stock = _selectedStocksPerClient[_clientId].Find(s => s.InstrumentId == holdingData.InstrumentId);
-        if (stock == null) return; //TODO toast
+        if (stock == null)
+        {
+            await ToastService.Error("Error", $"No stocks of type {holdingData.InstrumentId} in your holding", autoHide: true);
+            return;
+        }
         if (stock.Price == 0)
         {
-            Console.WriteLine("Cannot buy stock without a valid price.");
+            await ToastService.Error("Error", "Cannot sell stock without a valid price", autoHide: true);
             return;
         }
 
-        Console.WriteLine($"Selling {stock.Size} of {stock.InstrumentId} at {stock.Price:C} for client {_clientId.ToString()}");
         const OrderSide side = OrderSide.LeftSided;
         var order = new Order
         {
@@ -267,10 +272,25 @@
         ClientService.HandleOrder(order, OrderHandled);
     }
 
-    private void OrderHandled(Order order)
+    private async void OrderHandled(Order order)
     {
-        _tmpOrderstatus = order.Status.ToString();
-        _tmpErrorMessage = order.ErrorMesssage;
+        switch (order.Status)
+        {
+            case OrderStatus.Success:
+                await ToastService.Success("Success", $"Order for {order.Stock.Size} of stock {order.Stock.InstrumentId} was successful", autoHide: true);
+                break;
+            case OrderStatus.Processing:
+                await ToastService.Information("Processing", "Order is processing", autoHide: true);
+                break;
+            case OrderStatus.Rejected:
+                await ToastService.Error("Rejected", $"Order for {order.Stock.Size} of stock {order.Stock.InstrumentId} was rejected with error message: " + order.ErrorMesssage, autoHide: true);
+                break;
+            case OrderStatus.Canceled:
+                await ToastService.Error("Cancelled", $"Order for {order.Stock.Size} of stock {order.Stock.InstrumentId} was cancelled with error message: " + order.ErrorMesssage, autoHide: true);
+                break;
+        }
+        //_tmpOrderstatus = order.Status.ToString();
+        //_tmpErrorMessage = order.ErrorMesssage;
     }
 
     private async void UpdateHolding(List<HoldingData> holdings)
