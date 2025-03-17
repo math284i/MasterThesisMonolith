@@ -2,9 +2,9 @@
 {
     public class ClientData
     {
-        public Guid clientId { get; set; }
-        public string name { get; set; }
-        public float balance { get; set; }
-        public string tier { get; set; }
+        public Guid ClientId { get; set; }
+        public string Name { get; set; }
+        public float Balance { get; set; }
+        public string Tier { get; set; }
     }
 }
