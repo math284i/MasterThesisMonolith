@@ -2,8 +2,8 @@
 {
     public class HoldingData
     {
-        public Guid clientId { get; set; }
-        public string instrumentId { get; set; }
-        public int amount { get; set; }
+        public Guid ClientId { get; set; }
+        public string InstrumentId { get; set; }
+        public int Size { get; set; }
     }
 }

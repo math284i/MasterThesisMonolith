@@ -68,7 +68,7 @@
                                             <span class="stock-price">@(stock.Price == 0 ? "Price is yet to come" : stock.Price.ToString("C"))</span>
                                             @if (stock.Price != 0)
                                             {
-                                                <input type="number" class="quantity-input" min="1" @bind="stock.Quantity"/>
+                                                <input type="number" class="quantity-input" min="1" @bind="stock.Size"/>
 
                                                 <button class="buy-btn" @onclick="() => BuyStock(stock)">
                                                     Buy
@@ -235,7 +235,7 @@
             return;
         }
 
-        Console.WriteLine($"Buying {stock.Quantity} of {stock.InstrumentId} at {stock.Price:C} for client {_clientId.ToString()}");
+        Console.WriteLine($"Buying {stock.Size} of {stock.InstrumentId} at {stock.Price:C} for client {_clientId.ToString()}");
         const OrderSide side = OrderSide.RightSided;
         var order = new Order
         {

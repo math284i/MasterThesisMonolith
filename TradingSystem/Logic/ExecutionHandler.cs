@@ -80,7 +80,7 @@ public class ExecutionHandler : IExecutionHandler
         if (matchingStock.Price == order.Stock.Price)
         {
             // TODO Here check if we should book it our self or we should hedge it to the market
-            _logger.LogInformation($"Letting {order.ClientId} buy order {order.Stock.InstrumentId} at price {order.Stock.Price} quantity {order.Stock.Quantity}");
+            _logger.LogInformation($"Letting {order.ClientId} buy order {order.Stock.InstrumentId} at price {order.Stock.Price} quantity {order.Stock.Size}");
             
             // TODO if we send it to the market, wait for their acceptance before telling the client it was succeded.
             // TODO if sent to the market, create 2 books.

@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Transactions;
 using TradingSystem.Data;
@@ -58,19 +60,20 @@ public class DBHandler : IDBHandler
     {
         DatabaseData db = DeserializeDB();
 
-        if(db.clients.Exists(x => x.name.Equals(name)))
+        if(db.Clients.Exists(x => x.Name.Equals(name)))
         {
             return;
         }
 
         ClientData client = new ClientData
         {
-            clientId = Guid.NewGuid(),
-            name = name,
-            balance = 100.0f, //TODO: Figure out a good starting balance for new clients
-            tier = "Average" //TODO: Figure out a good tier system
+            ClientId = Guid.NewGuid(),
+            Name = name,
+            Balance = 100.0f, //TODO: Figure out a good starting balance for new clients
+            Tier = "Average" //TODO: Figure out a good tier system
         };
-        db.clients.Add(client);
+
+        db.Clients.Add(client);
         Serialize(db);
         return;
     }
@@ -81,30 +84,24 @@ public class DBHandler : IDBHandler
     {
         DatabaseData db = DeserializeDB();
 
-        if (db.customers.Exists(x => x.username.Equals(username)) || db.clients.Exists(x => x.name.Equals(name)))
-        {
-            return;
-        }
-
         Guid ID = Guid.NewGuid();
 
-        //TODO: Hash password before storing
         CustomerData customer = new CustomerData
         {
-            clientId = ID,
-            username = username,
-            password = password
+            ClientId = ID,
+            Username = username,
+            Password = hashPassword(password, ID, db)
         };
-        db.customers.Add(customer);
+        db.Customers.Add(customer);
 
         ClientData client = new ClientData
         {
-            clientId = ID,
-            name = name,
-            balance = 100.0f, //TODO: Figure out a good starting balance for new clients
-            tier = "Average" //TODO: Figure out a good tier system
+            ClientId = ID,
+            Name = name,
+            Balance = 100.0f, //TODO: Figure out a good starting balance for new clients
+            Tier = "Regular" //TODO: Figure out a good tier system
         };
-        db.clients.Add(client);
+        db.Clients.Add(client);
 
         Serialize(db);
         return;
@@ -112,29 +109,38 @@ public class DBHandler : IDBHandler
 
     public void AddTransaction(TransactionData transaction)
     {
-        var db = DeserializeDB();
-        transaction.TransactionId = Guid.NewGuid();
-        transaction.Time = DateTime.UtcNow;
-        
-        db.transactions.Add(transaction);
-        if(transaction.Succeeded)
+        DatabaseData db = deserializeDB();
+
+        TransactionData trans = new TransactionData
         {
-            db = UpdateHoldings(db, transaction);
-            var buyer = db.clients.Find(x => x.clientId == transaction.BuyerId);
+            TransactionId = Guid.NewGuid(),
+            BuyerId = buyerId,
+            SellerId = sellerId,
+            InstrumentId = instrumentId,
+            Size = size,
+            Price = price,
+            Time = DateTime.Now,
+            Succeeded = succeeded
+        };
+        db.Transactions.Add(trans);
+        if(succeeded)
+        {
+            db = updateHoldings(db, trans);
+            var buyer = db.Clients.Find(x => x.ClientId == buyerId);
             if(buyer != null)
             {
-                db.clients.Remove(buyer);
-                buyer.balance -= transaction.Size * transaction.Price;
-                db.clients.Add(buyer);
+                db.Clients.Remove(buyer);
+                buyer.Balance -= size * price;
+                db.Clients.Add(buyer);
                 var topic = TopicGenerator.TopicForHoldingOfClient(buyer.clientId.ToString());
                 _messageBus.Publish(topic, GetClientHoldings(buyer.clientId), isTransient: true);
             }
-            var seller = db.clients.Find(x => x.clientId == transaction.SellerId);
+            var seller = db.Clients.Find(x => x.ClientId == sellerId);
             if (seller != null)
             {
-                db.clients.Remove(seller);
-                seller.balance += transaction.Size * transaction.Price;
-                db.clients.Add(seller);
+                db.Clients.Remove(seller);
+                seller.Balance += size * price;
+                db.Clients.Add(seller);
                 var topic = TopicGenerator.TopicForHoldingOfClient(seller.clientId.ToString());
                 _messageBus.Publish(topic, GetClientHoldings(seller.clientId), isTransient: true);
             }
@@ -145,44 +151,41 @@ public class DBHandler : IDBHandler
 
     private DatabaseData UpdateHoldings(DatabaseData db, TransactionData trans)
     {
-        var currentHoldBuyer = db.holdings.Find(x => x.clientId == trans.BuyerId && x.instrumentId == trans.InstrumentId);
+        var currentHoldBuyer = db.Holdings.Find(x => x.ClientId == trans.BuyerId && x.InstrumentId == trans.InstrumentId);
         if(currentHoldBuyer == null)
         {
             HoldingData newHolding = new HoldingData
             {
-                clientId = trans.BuyerId,
-                instrumentId = trans.InstrumentId,
-                amount = trans.Size
+                ClientId = trans.BuyerId,
+                InstrumentId = trans.InstrumentId,
+                Size = trans.Size
             };
-            db.holdings.Add(newHolding);
+            db.Holdings.Add(newHolding);
         }
         else
         {
-            db.holdings.Remove(currentHoldBuyer);
-            currentHoldBuyer.amount += trans.Size;
-            db.holdings.Add(currentHoldBuyer);
-            Console.WriteLine($"Adding holding for client: {currentHoldBuyer.clientId}");
+            db.Holdings.Remove(currentHoldBuyer);
+            currentHoldBuyer.Size += trans.Size;
+            db.Holdings.Add(currentHoldBuyer);
         }
-
         var topicBuyer = TopicGenerator.TopicForHoldingOfClient(trans.BuyerId.ToString());
         _messageBus.Publish(topicBuyer, GetClientHoldings(trans.BuyerId));
-        var currentHoldSeller = db.holdings.Find(x => x.clientId == trans.SellerId);
+        var currentHoldSeller = db.Holdings.Find(x => x.ClientId == trans.SellerId);
         if (currentHoldSeller == null)
         {
             HoldingData newHolding = new HoldingData
             {
-                clientId = trans.SellerId,
-                instrumentId = trans.InstrumentId,
-                amount = -trans.Size
+                ClientId = trans.SellerId,
+                InstrumentId = trans.InstrumentId,
+                Size = -trans.Size
             };
-            db.holdings.Add(newHolding);
+            db.Holdings.Add(newHolding);
         }
         else
         {
-            Console.WriteLine($"Adding holding for seller: {currentHoldSeller.clientId}");
-            db.holdings.Remove(currentHoldSeller);
-            currentHoldSeller.amount -= trans.Size;
-            db.holdings.Add(currentHoldSeller);
+            db.Holdings.Remove(currentHoldSeller);
+            currentHoldSeller.Size -= trans.Size;
+            db.Holdings.Add(currentHoldSeller);
         }
         var topicSeller = TopicGenerator.TopicForHoldingOfClient(trans.SellerId.ToString());
         _messageBus.Publish(topicSeller, GetClientHoldings(trans.SellerId));
@@ -191,62 +194,66 @@ public class DBHandler : IDBHandler
 
     public string GetClientTier(string name)
     {
-        var db = DeserializeDB();
-        var client = db.clients.Find(x => x.name.Equals(name));
+        DatabaseData db = deserializeDB();
+        var client = db.Clients.Find(x => x.Name.Equals(name));
         if(client == null)
         {
             return "Client not found"; //TODO: Proper error handling
         }
-        return client.tier;
+        return client.Tier;
     }
 
     public float GetClientBalance(string name)
     {
-        var db = DeserializeDB();
-        var client = db.clients.Find(x => x.name.Equals(name));
+        DatabaseData db = deserializeDB();
+        var client = db.Clients.Find(x => x.Name.Equals(name));
         if (client == null)
         {
             return -1.0f; //TODO: Proper error handling
         }
-        return client.balance;
+        return client.Balance;
     }
 
     public Guid GetClientGuid(string name)
     {
-        var db = DeserializeDB();
-        var client = db.clients.Find(x => x.name.Equals(name));
+        DatabaseData db = deserializeDB();
+        var client = db.Clients.Find(x => x.Name.Equals(name));
         if (client == null)
         {
             return Guid.NewGuid(); //TODO: Proper error handling
         }
-        return client.clientId;
+        return client.ClientId;
     }
 
     public List<TransactionData> GetClientTransactions(string name)
     {
-        var db = DeserializeDB();
-        var client = db.clients.Find(x => x.name.Equals(name));
+        DatabaseData db = deserializeDB();
+        var client = db.Clients.Find(x => x.Name.Equals(name));
         if (client == null)
         {
             return new List<TransactionData>(); //TODO: Proper error handling
         }
-        var transBuyer = db.transactions.FindAll(x => x.BuyerId == client.clientId);
-        var transSeller = db.transactions.FindAll(x => x.SellerId == client.clientId);
+        List<TransactionData> transBuyer = db.Transactions.FindAll(x => x.BuyerId == client.ClientId);
+        List<TransactionData> transSeller = db.Transactions.FindAll(x => x.SellerId == client.ClientId);
         return transBuyer.Concat(transSeller).ToList();
     }
 
     public List<HoldingData> GetClientHoldings(Guid clientId)
     {
-        var db = DeserializeDB();
-
-        List<HoldingData> holdings = db.holdings.FindAll(x => x.clientId == clientId);
+        DatabaseData db = deserializeDB();
+        var client = db.Clients.Find(x => x.Name.Equals(name));
+        if (client == null)
+        {
+            return new List<HoldingData>(); //TODO: Proper error handling
+        }
+        List<HoldingData> holdings = db.Holdings.FindAll(x => x.ClientId == client.ClientId);
         return holdings;
     }
 
     public List<ClientData> GetAllClients()
     {
-        var db = DeserializeDB();
-        return db.clients;
+        DatabaseData db = deserializeDB();
+        return db.Clients;
     }
 
     private void CheckLogin(LoginInfo info)
@@ -256,10 +263,9 @@ public class DBHandler : IDBHandler
         var username = info.Username;
         var password = info.Password;
 
-        //TODO: Hash password with same algorithm as when the customer was created, before checking
-        var customer = db.customers.Find(x => x.username.Equals(username) && x.password.Equals(password));
+        var customer = db.Customers.Find(x => x.Username.Equals(username) && x.Password.Equals(hashPassword(password,x.ClientId, db)));
         info.IsAuthenticated = customer != null;
-        info.ClientId = customer == null ?  Guid.Empty : customer.clientId;
+        info.ClientId = customer == null ?  Guid.Empty : customer.ClientId;
 
         var topic = TopicGenerator.TopicForLoginResponse();
         _messageBus.Publish(topic, info, isTransient: true);
@@ -270,51 +276,25 @@ public class DBHandler : IDBHandler
     {
         DatabaseData db = new DatabaseData
         {
-            clients = new List<ClientData>(),
-            customers = new List<CustomerData>(),
-            transactions = new List<TransactionData>(),
-            holdings = new List<HoldingData>()
+            Clients = new List<ClientData>(),
+            Customers = new List<CustomerData>(),
+            Transactions = new List<TransactionData>(),
+            Holdings = new List<HoldingData>(),
+            Salts = new List<SaltData>()
         };
-        db.clients.Add(new ClientData
+        db.Clients.Add(new ClientData
         {
-            clientId = Guid.NewGuid(),
-            name = "Danske Bank",
-            balance = 1000000.0f,
-            tier = "internal"
-        });
-
-        Guid user1 = Guid.NewGuid();
-        db.clients.Add(new ClientData
-        {
-            clientId = user1,
-            name = "Anders",
-            balance = 100.0f,
-            tier = "standard"
-        });
-        db.customers.Add(new CustomerData
-        {
-            clientId = user1,
-            username = "KP",
-            password = "KP"
-        });
-
-        Guid user2 = Guid.NewGuid();
-        db.clients.Add(new ClientData
-        {
-            clientId = user2,
-            name = "Mathias",
-            balance = 100.0f,
-            tier = "standard"
-        });
-        db.customers.Add(new CustomerData
-        {
-            clientId = user2,
-            username = "Dyberg",
-            password = "Dyberg"
+            ClientId = Guid.NewGuid(),
+            Name = "Danske Bank",
+            Balance = 1000000.0f,
+            Tier = "internal"
         });
 
         //TODO: Add initial holdings
         Serialize(db);
+
+        addClientCustomer("Anders", "KP", "KP");
+        addClientCustomer("Mathias", "Dyberg", "KP");
         return;
     }
 
@@ -329,5 +309,22 @@ public class DBHandler : IDBHandler
     {
         string jsonString = File.ReadAllText(databaseFilePath);
         return JsonSerializer.Deserialize<DatabaseData>(jsonString)!;
+    }
+
+    private string hashPassword(string password, Guid clientId, DatabaseData db)
+    {
+        var salt = db.Salts.Find(x => x.ClientId == clientId);
+        if (salt == null)
+        {
+            salt = new SaltData
+            {
+                ClientId = clientId,
+                Salt = System.Text.Encoding.Default.GetString(RandomNumberGenerator.GetBytes(16))
+            };
+            db.Salts.Add(salt);
+        }
+        string saltedPassword = salt.Salt + password;
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(saltedPassword));
+        return System.Text.Encoding.Default.GetString(hash);
     }
 }
