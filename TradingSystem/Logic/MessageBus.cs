@@ -72,7 +72,7 @@ namespace TradingSystem.Logic
                     {
                         if (isTransient && _transientMessages.TryGetValue(key, out var queue))
                         {
-                            if (queue.TryDequeue(out var dequeuedMessage) && dequeuedMessage is T transientMessage)
+                            while(queue.TryDequeue(out var dequeuedMessage) && dequeuedMessage is T transientMessage)
                             {
                                 ((Action<T>)handler)(transientMessage);
                             }

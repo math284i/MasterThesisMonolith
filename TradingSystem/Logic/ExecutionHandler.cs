@@ -25,7 +25,8 @@ public class ExecutionHandler : IExecutionHandler
 
     public void Start()
     {
-        _messageBus.Subscribe<HashSet<StockOptions>>("allInstruments", Id, stocks =>
+        var topicInstruments = TopicGenerator.TopicForAllInstruments();
+        _messageBus.Subscribe<HashSet<StockOptions>>(topicInstruments, Id, stocks =>
         {
             _stockOptions = stocks;
 
@@ -55,11 +56,42 @@ public class ExecutionHandler : IExecutionHandler
     {
         var matchingStock = _stockOptions.SingleOrDefault(s => s.InstrumentId == order.Stock.InstrumentId);
         if (matchingStock == null) return;
+        
+        var transaction = new TransactionData
+        {
+            InstrumentId = order.Stock.InstrumentId,
+            Size = order.Stock.Quantity,
+            Price = order.Stock.Price,
+        };
 
+        if (order.Side == OrderSide.RightSided)
+        {
+            // Buy
+            transaction.BuyerId = order.ClientId;
+            transaction.SellerId = Guid.Empty; // TODO
+        }
+        else
+        {
+            // Sell
+            transaction.SellerId = order.ClientId;
+            transaction.BuyerId = Guid.Empty;
+        }
+        
         if (matchingStock.Price == order.Stock.Price)
         {
-            // Here check if we should book it our self or we should hedge it to the market
+            // TODO Here check if we should book it our self or we should hedge it to the market
             _logger.LogInformation($"Letting {order.ClientId} buy order {order.Stock.InstrumentId} at price {order.Stock.Price} quantity {order.Stock.Size}");
+            
+            // TODO if we send it to the market, wait for their acceptance before telling the client it was succeded.
+            // TODO if sent to the market, create 2 books.
+            order.Status = OrderStatus.Success;
+
+            transaction.Succeeded = true;
+            var topicBook = TopicGenerator.TopicForBookingOrder();
+            _messageBus.Publish(topicBook, transaction, isTransient: true);
+            
+            var topicClient = TopicGenerator.TopicForClientOrderEnded(order.ClientId.ToString());
+            _messageBus.Publish(topicClient, order, isTransient: true);
         }
     }
 

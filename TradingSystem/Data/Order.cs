@@ -5,4 +5,6 @@ public class Order
     public required Guid ClientId;
     public required OrderSide Side;
     public required StockOptions Stock;
+    public OrderStatus Status;
+    public string ErrorMesssage = "";
 }

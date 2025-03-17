@@ -21,6 +21,11 @@ public class TopicGenerator
     {
         return "buyOrderApproved";
     }
+
+    public static string TopicForClientOrderEnded(string clientId)
+    {
+        return "buyOrderEnded" + clientId;
+    }
     
     public static string TopicForLoginRequest()
     {
@@ -32,4 +37,23 @@ public class TopicGenerator
         return "loginResponded";
     }
 
+    public static string TopicForAllClients()
+    {
+        return "allClients";
+    }
+
+    public static string TopicForAllInstruments()
+    {
+        return "allInstruments";
+    }
+
+    public static string TopicForBookingOrder()
+    {
+        return "BookOrder";
+    }
+
+    public static string TopicForHoldingOfClient(string clientId)
+    {
+        return "holdingOfClient" + clientId;
+    }
 }

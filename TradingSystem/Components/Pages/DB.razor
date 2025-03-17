@@ -1,0 +1,72 @@
+@page "/DB"
+@using TradingSystem.Logic
+@using TradingSystem.Data
+@inject IDBHandler DbHandler
+
+<h3>Clients and Holdings</h3>
+
+@if (clients == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <table class="clients-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Balance</th>
+                <th>Tier</th>
+                <th>Holdings</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var client in clients)
+            {
+                <tr>
+                    <td>@client.name</td>
+                    <td>@client.balance.ToString("C")</td>
+                    <td>@client.tier</td>
+                    <td>
+                        @if (holdings.TryGetValue(client.clientId, out var clientHoldings) && clientHoldings.Any())
+                        {
+                            <ul class="holdings-list">
+                                @foreach (var holding in clientHoldings)
+                                {
+                                    <li>@holding.instrumentId: @holding.amount</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p class="no-holdings">No holdings</p>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<ClientData> clients;
+    private Dictionary<Guid, List<HoldingData>> holdings = new();
+    private System.Timers.Timer timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        clients = DbHandler.GetAllClients();
+        holdings = clients.ToDictionary(
+            client => client.clientId,
+            client => DbHandler.GetClientHoldings(client.clientId)
+        );
+        StateHasChanged();
+        const int threeSecondsInMilliseconds = 3000;
+        Task.Delay(threeSecondsInMilliseconds).ContinueWith(_ => InvokeAsync(LoadData));
+    }
+}

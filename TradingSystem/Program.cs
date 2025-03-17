@@ -1,13 +1,16 @@
+using BootstrapBlazor.Components;
 using TradingSystem.Components;
 using TradingSystem.Logic;
 using TradingSystem.Setup;
+using Console = System.Console;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
-    .Services.SetupJsLogging()
+    .Services.AddBootstrapBlazor()
+    .SetupJsLogging()
     .SetupExternalData(builder.Configuration).SetupTradingSystem();
 
 var app = builder.Build();

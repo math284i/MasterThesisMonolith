@@ -10,13 +10,15 @@ public class Logic : IHostedService
     private readonly IRiskCalculator _riskCalculator;
     private readonly IExecutionHandler _executionHandler;
     private readonly IDBHandler _dbHandler;
+    private readonly IBook _book;
 
     public Logic(ILogger<Logic> logger
         , IPricerEngine pricerEngine
         , IMarketDataGateway marketDataGateway
         , IRiskCalculator riskCalculator
         , IExecutionHandler executionHandler
-        , IDBHandler dbHandler)
+        , IDBHandler dbHandler
+        , IBook book)
     {
         _logger = logger;
         _pricerEngine = pricerEngine;
@@ -24,17 +26,19 @@ public class Logic : IHostedService
         _riskCalculator = riskCalculator;
         _executionHandler = executionHandler;
         _dbHandler = dbHandler;
+        _book = book;
     }
     
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _logger.ServiceStartingUp();
         
+        _dbHandler.Start();
+        _book.Start();
         _pricerEngine.Start();
         _marketDataGateway.Start();
-        _riskCalculator.Start();
         _executionHandler.Start();
-        _dbHandler.Start();
+        _riskCalculator.Start();
         
         _logger.ServiceStarted();
         
@@ -45,11 +49,12 @@ public class Logic : IHostedService
     {
         _logger.ServiceStopped();
         
+        _dbHandler.Stop();
+        _book.Stop();
         _pricerEngine.Stop();
         _marketDataGateway.Stop();
         _riskCalculator.Stop();
         _executionHandler.Stop();
-        _dbHandler.Stop();
         
         _logger.ServiceStopped();
         
