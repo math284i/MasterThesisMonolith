@@ -24,16 +24,16 @@ else
             @foreach (var client in clients)
             {
                 <tr>
-                    <td>@client.name</td>
-                    <td>@client.balance.ToString("C")</td>
-                    <td>@client.tier</td>
+                    <td>@client.Name</td>
+                    <td>@client.Balance.ToString("C")</td>
+                    <td>@client.Tier</td>
                     <td>
-                        @if (holdings.TryGetValue(client.clientId, out var clientHoldings) && clientHoldings.Any())
+                        @if (holdings.TryGetValue(client.ClientId, out var clientHoldings) && clientHoldings.Any())
                         {
                             <ul class="holdings-list">
                                 @foreach (var holding in clientHoldings)
                                 {
-                                    <li>@holding.instrumentId: @holding.amount</li>
+                                    <li>@holding.InstrumentId: @holding.Size</li>
                                 }
                             </ul>
                         }
@@ -62,8 +62,8 @@ else
     {
         clients = DbHandler.GetAllClients();
         holdings = clients.ToDictionary(
-            client => client.clientId,
-            client => DbHandler.GetClientHoldings(client.clientId)
+            client => client.ClientId,
+            client => DbHandler.GetClientHoldings(client.ClientId)
         );
         StateHasChanged();
         const int threeSecondsInMilliseconds = 3000;

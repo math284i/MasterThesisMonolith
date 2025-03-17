@@ -36,12 +36,12 @@ public class RiskCalculator : IRiskCalculator
                 foreach (var client in _clients)
                 {
                     _logger.LogInformation($"Subscribed to {client}");
-                    var topicForHolding = TopicGenerator.TopicForHoldingOfClient(client.clientId.ToString());
+                    var topicForHolding = TopicGenerator.TopicForHoldingOfClient(client.ClientId.ToString());
                     _messageBus.Subscribe<List<HoldingData>>(topicForHolding, Id, holding =>
                     {
-                        if (!_clientHoldings.TryAdd(client.clientId, holding))
+                        if (!_clientHoldings.TryAdd(client.ClientId, holding))
                         {
-                            _clientHoldings[client.clientId] = holding;
+                            _clientHoldings[client.ClientId] = holding;
                         }
                     });
                 }
@@ -58,7 +58,7 @@ public class RiskCalculator : IRiskCalculator
     private void CheckOrder(Order order)
     {
         // TODO distinguish between buy and sell, using orderSide, Right = buy, left = sell
-        var clientAmount = _clients.Find(c => c.clientId == order.ClientId);
+        var clientAmount = _clients.Find(c => c.ClientId == order.ClientId);
         if (clientAmount == null)
         {
             _logger.LogError("Risk calculator, Client {ClientId} not found", order.ClientId);
@@ -68,7 +68,7 @@ public class RiskCalculator : IRiskCalculator
         if (order.Side == OrderSide.RightSided)
         {
             // Buy
-            if (clientAmount.balance >= order.Stock.Price * order.Stock.Quantity)
+            if (clientAmount.Balance >= order.Stock.Price * order.Stock.Size)
             {
                 _logger.LogInformation("RiskCalculator accepting order");
                 var topic = TopicGenerator.TopicForClientBuyOrderApproved();
@@ -86,11 +86,11 @@ public class RiskCalculator : IRiskCalculator
         else
         {
             // Sell
-            var holding = _clientHoldings[order.ClientId].Find(h => h.instrumentId == order.Stock.InstrumentId);
+            var holding = _clientHoldings[order.ClientId].Find(h => h.InstrumentId == order.Stock.InstrumentId);
             var topic = "";
             if (holding != null)
             {
-                if (holding.amount <= order.Stock.Quantity)
+                if (holding.Size <= order.Stock.Size)
                 {
                     topic = TopicGenerator.TopicForClientBuyOrderApproved();
                 }

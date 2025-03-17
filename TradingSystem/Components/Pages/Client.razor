@@ -107,8 +107,8 @@
                         @foreach (var holding in _holdings)
                         {
                             <tr>
-                                <td>@holding.instrumentId</td>
-                                <td>@holding.amount</td>
+                                <td>@holding.InstrumentId</td>
+                                <td>@holding.Size</td>
 
                                 <input type="number" class="quantity-input" min="1"/>
                                 
@@ -248,7 +248,7 @@
     
     private void SellStock(HoldingData holdingData)
     {
-        var stock = _selectedStocksPerClient[_clientId].Find(s => s.InstrumentId == holdingData.instrumentId);
+        var stock = _selectedStocksPerClient[_clientId].Find(s => s.InstrumentId == holdingData.InstrumentId);
         if (stock == null) return; //TODO toast
         if (stock.Price == 0)
         {
@@ -256,7 +256,7 @@
             return;
         }
 
-        Console.WriteLine($"Selling {stock.Quantity} of {stock.InstrumentId} at {stock.Price:C} for client {_clientId.ToString()}");
+        Console.WriteLine($"Selling {stock.Size} of {stock.InstrumentId} at {stock.Price:C} for client {_clientId.ToString()}");
         const OrderSide side = OrderSide.LeftSided;
         var order = new Order
         {
@@ -297,7 +297,7 @@
     {
         ClientService.Logout(LogOutSuccess);
     }
-
+    
     private void LogOutSuccess(bool authenticated)
     {
         _isAuthenticated = authenticated;
