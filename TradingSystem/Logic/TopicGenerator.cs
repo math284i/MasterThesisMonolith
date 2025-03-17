@@ -52,4 +52,8 @@ public class TopicGenerator
         return "BookOrder";
     }
 
+    public static string TopicForHoldingOfClient(string clientId)
+    {
+        return "holdingOfClient" + clientId;
+    }
 }

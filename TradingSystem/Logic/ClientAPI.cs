@@ -9,7 +9,8 @@ public interface IClient
     public HashSet<StockOptions> GetStockOptions<T>(Action<T> client);
     public void HandleOrder(Order order, Action<Order> callback);
 
-    public void Login(string clientId, string password, Action<LoginInfo> callback);
+    public void Login(string username, string password, Action<LoginInfo> callbackLogin,
+        Action<List<HoldingData>> callbackHoldings);
 
     public void Logout(Action<bool> callback);
     void StreamPrice(StreamInformation info, Action<StockOptions> updatePrice);
@@ -68,7 +69,7 @@ public class ClientAPI : IClient
         _messageBus.Publish(topicToPublish, order, isTransient: true);
     }
 
-    public void Login(string username, string password, Action<LoginInfo> callback)
+    public void Login(string username, string password, Action<LoginInfo> callbackLogin, Action<List<HoldingData>> callbackHoldings)
     {
         var requestTopic = TopicGenerator.TopicForLoginRequest();
         var responseTopic = TopicGenerator.TopicForLoginResponse();
@@ -77,9 +78,18 @@ public class ClientAPI : IClient
             Username = username,
             Password = password
         };
-        _messageBus.Subscribe(responseTopic, Id, callback);
+        _messageBus.Subscribe<LoginInfo>(responseTopic, Id, info =>
+        {
+            if (info.IsAuthenticated)
+            {
+                var topic = TopicGenerator.TopicForHoldingOfClient(info.ClientId.ToString());
+                _messageBus.Subscribe(topic, Id, callbackHoldings);
+            }
+            callbackLogin?.Invoke(info);
+        });
         _messageBus.Publish(requestTopic, info, isTransient: true);
     }
+    
 
     public void Logout(Action<bool> callback)
     {

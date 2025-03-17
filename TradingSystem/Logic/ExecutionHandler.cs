@@ -83,6 +83,7 @@ public class ExecutionHandler : IExecutionHandler
             _logger.LogInformation($"Letting {order.ClientId} buy order {order.Stock.InstrumentId} at price {order.Stock.Price} quantity {order.Stock.Quantity}");
             
             // TODO if we send it to the market, wait for their acceptance before telling the client it was succeded.
+            // TODO if sent to the market, create 2 books.
             order.Status = OrderStatus.Success;
 
             transaction.Succeeded = true;

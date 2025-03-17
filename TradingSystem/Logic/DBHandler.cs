@@ -16,7 +16,7 @@ public interface IDBHandler
     public float GetClientBalance(string name);
     public Guid GetClientGuid(string name);
     public List<TransactionData> GetClientTransactions(string name);
-    public List<HoldingData> GetClientHoldings(string name);
+    public List<HoldingData> GetClientHoldings(Guid clientId);
 
     public List<ClientData> GetAllClients();
 
@@ -40,6 +40,12 @@ public class DBHandler : IDBHandler
         ResetDB();
         var topic = TopicGenerator.TopicForLoginRequest();
         _messageBus.Subscribe<LoginInfo>(topic, Id, CheckLogin);
+        var allClients = GetAllClients();
+        foreach (var client in allClients)
+        {
+            var topicClient = TopicGenerator.TopicForHoldingOfClient(client.clientId.ToString());
+            _messageBus.Publish(topicClient, GetClientHoldings(client.clientId));
+        }
     }
 
     public void Stop()
@@ -108,6 +114,7 @@ public class DBHandler : IDBHandler
     {
         var db = DeserializeDB();
         transaction.TransactionId = Guid.NewGuid();
+        transaction.Time = DateTime.UtcNow;
         
         db.transactions.Add(transaction);
         if(transaction.Succeeded)
@@ -119,6 +126,8 @@ public class DBHandler : IDBHandler
                 db.clients.Remove(buyer);
                 buyer.balance -= transaction.Size * transaction.Price;
                 db.clients.Add(buyer);
+                var topic = TopicGenerator.TopicForHoldingOfClient(buyer.clientId.ToString());
+                _messageBus.Publish(topic, GetClientHoldings(buyer.clientId), isTransient: true);
             }
             var seller = db.clients.Find(x => x.clientId == transaction.SellerId);
             if (seller != null)
@@ -126,6 +135,8 @@ public class DBHandler : IDBHandler
                 db.clients.Remove(seller);
                 seller.balance += transaction.Size * transaction.Price;
                 db.clients.Add(seller);
+                var topic = TopicGenerator.TopicForHoldingOfClient(seller.clientId.ToString());
+                _messageBus.Publish(topic, GetClientHoldings(seller.clientId), isTransient: true);
             }
         }
         Serialize(db);
@@ -150,8 +161,11 @@ public class DBHandler : IDBHandler
             db.holdings.Remove(currentHoldBuyer);
             currentHoldBuyer.amount += trans.Size;
             db.holdings.Add(currentHoldBuyer);
+            Console.WriteLine($"Adding holding for client: {currentHoldBuyer.clientId}");
         }
 
+        var topicBuyer = TopicGenerator.TopicForHoldingOfClient(trans.BuyerId.ToString());
+        _messageBus.Publish(topicBuyer, GetClientHoldings(trans.BuyerId));
         var currentHoldSeller = db.holdings.Find(x => x.clientId == trans.SellerId);
         if (currentHoldSeller == null)
         {
@@ -165,10 +179,13 @@ public class DBHandler : IDBHandler
         }
         else
         {
+            Console.WriteLine($"Adding holding for seller: {currentHoldSeller.clientId}");
             db.holdings.Remove(currentHoldSeller);
             currentHoldSeller.amount -= trans.Size;
             db.holdings.Add(currentHoldSeller);
         }
+        var topicSeller = TopicGenerator.TopicForHoldingOfClient(trans.SellerId.ToString());
+        _messageBus.Publish(topicSeller, GetClientHoldings(trans.SellerId));
         return db;
     }
 
@@ -218,15 +235,11 @@ public class DBHandler : IDBHandler
         return transBuyer.Concat(transSeller).ToList();
     }
 
-    public List<HoldingData> GetClientHoldings(string name)
+    public List<HoldingData> GetClientHoldings(Guid clientId)
     {
         var db = DeserializeDB();
-        var client = db.clients.Find(x => x.name.Equals(name));
-        if (client == null)
-        {
-            return new List<HoldingData>(); //TODO: Proper error handling
-        }
-        List<HoldingData> holdings = db.holdings.FindAll(x => x.clientId == client.clientId);
+
+        List<HoldingData> holdings = db.holdings.FindAll(x => x.clientId == clientId);
         return holdings;
     }
 

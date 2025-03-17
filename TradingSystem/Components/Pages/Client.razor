@@ -1,12 +1,16 @@
 @page "/"
+@using System.Diagnostics.CodeAnalysis
 @using TradingSystem.Data
 @using TradingSystem.DTO
 @using TradingSystem.Logic
 @using TradingSystem.Setup
+@using Console = System.Console
 @inject JsLogger Logger
 @inject IClient ClientService
 @inject IMessageBus MessageBus
 @rendermode InteractiveServer
+@inherits LayoutComponentBase
+@inject ToastService ToastService
 
 <link rel="stylesheet" href="Styles/ClientStyle.css">
 
@@ -86,6 +90,42 @@
                     </div>
                 </div>
             </div>
+            
+            <div class="holdings-section">
+                <h4 class="section-title">Your Holdings</h4>
+
+                @if (_holdings.Any())
+                {
+                    <table class="holdings-table">
+                        <thead>
+                        <tr>
+                            <th>Instrument</th>
+                            <th>Amount</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var holding in _holdings)
+                        {
+                            <tr>
+                                <td>@holding.instrumentId</td>
+                                <td>@holding.amount</td>
+
+                                <input type="number" class="quantity-input" min="1"/>
+                                
+                                <button class="buy-btn" @onclick="() => SellStock(holding)">
+                                    Sell
+                                </button>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <p class="no-holdings">No holdings available.</p>
+                }
+            </div>
+            
             @if (_isDevelopment)
             {
                 <h5>@_tmpOrderstatus</h5>
@@ -104,6 +144,8 @@
     </div>
 </div>
 
+@* <Toasts class="p-3" AutoHide="true" Delay="4000" Placement="ToastsPlacement.BottomCenter" /> *@
+
 @code {
     private Dictionary<Guid, HashSet<StockOptions>> stocks = new();
     private bool _isAuthenticated;
@@ -116,10 +158,11 @@
     private string _tmpOrderstatus = "";
     private string _tmpErrorMessage = "";
     private readonly Dictionary<Guid, List<StockOptions>> _selectedStocksPerClient = new();
+    private List<HoldingData> _holdings = new();
 
     private void Login()
     {
-        ClientService.Login(_clientUsername, _clientPassword, LoginSuccess);
+        ClientService.Login(_clientUsername, _clientPassword, LoginSuccess, UpdateHolding);
     }
 
     private void LoginSuccess(LoginInfo info)
@@ -202,14 +245,42 @@
         };
         ClientService.HandleOrder(order, OrderHandled);
     }
+    
+    private void SellStock(HoldingData holdingData)
+    {
+        var stock = _selectedStocksPerClient[_clientId].Find(s => s.InstrumentId == holdingData.instrumentId);
+        if (stock == null) return; //TODO toast
+        if (stock.Price == 0)
+        {
+            Console.WriteLine("Cannot buy stock without a valid price.");
+            return;
+        }
+
+        Console.WriteLine($"Selling {stock.Quantity} of {stock.InstrumentId} at {stock.Price:C} for client {_clientId.ToString()}");
+        const OrderSide side = OrderSide.LeftSided;
+        var order = new Order
+        {
+            ClientId = _clientId,
+            Side = side,
+            Stock = stock
+        };
+        ClientService.HandleOrder(order, OrderHandled);
+    }
 
     private void OrderHandled(Order order)
     {
         _tmpOrderstatus = order.Status.ToString();
         _tmpErrorMessage = order.ErrorMesssage;
     }
+
+    private async void UpdateHolding(List<HoldingData> holdings)
+    {
+        Console.WriteLine($"UI updating holding! for client {_clientId} holdings: {holdings.Count}");
+        _holdings = holdings;
+        await InvokeAsync(StateHasChanged);
+    }
     
-    private void SimulateNewPrice()
+    private async void SimulateNewPrice()
     {
         var stock = new StockOptions
         {
@@ -218,6 +289,8 @@
         };
         var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
         MessageBus.Publish(stockTopic, stock);
+ 
+        await ToastService.Success("Success", "New price successfully put on the bus", autoHide: true);
     }
 
     private void LogOut()
