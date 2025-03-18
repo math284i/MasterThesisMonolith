@@ -118,6 +118,11 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
     public void Stop()
     {
         _cts.Cancel();
+        var topic = TopicGenerator.TopicForAllInstruments();
+        messageBus.Unsubscribe(topic, Id);
+
+        _stockOptions = new();
+        _instrumentIds = new();
     }
 
     public void setSimSpeed(int newSpeed)

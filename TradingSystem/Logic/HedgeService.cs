@@ -42,6 +42,7 @@ public class HedgeService(IMessageBus messageBus, INordea nordea, IJPMorgan JPMo
 
     public void Stop()
     {
+        brokerInventory = new();
         var topic = TopicGenerator.TopicForHedgingOrderRequest();
         messageBus.Unsubscribe(topic, Id);
     }

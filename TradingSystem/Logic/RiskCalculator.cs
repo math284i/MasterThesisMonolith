@@ -114,6 +114,9 @@ public class RiskCalculator : IRiskCalculator
     {
         var topic = TopicGenerator.TopicForClientBuyOrder();
         _messageBus.Unsubscribe(topic, Id);
+        var topicForClients = TopicGenerator.TopicForAllClients();
+        _messageBus.Unsubscribe(topicForClients, Id);
+
         foreach (var client in _clients)
         {
             var topicForClientData = TopicGenerator.TopicForDBDataOfClient(client.ClientId.ToString());

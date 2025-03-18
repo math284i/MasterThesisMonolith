@@ -16,8 +16,7 @@ public interface IPricerEngine
 public class PricerEngine : IPricerEngine
 {
     private readonly ILogger<PricerEngine> _logger;
-    private readonly Dictionary<string, HashSet<StockOptions>> _clientsDict = new();
-    private readonly HashSet<StockOptions> _referencePrices;
+    private HashSet<StockOptions> _referencePrices;
     private readonly IOptions<TradingOptions> _tradingOptions;
     private readonly IMessageBus _messageBus;
     private const string Id = "pricerEngine";
@@ -54,7 +53,12 @@ public class PricerEngine : IPricerEngine
 
     public void Stop()
     {
-        // TODO unsubscribe to everything
+        foreach (var stock in _tradingOptions.Value.Stocks)
+        {
+            var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock);
+            _messageBus.Unsubscribe(stockTopic, Id);
+        }
+        _referencePrices = new();
     }
 
     private void UpdatePrice(StockOptions stock)
