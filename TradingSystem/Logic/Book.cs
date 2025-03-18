@@ -11,16 +11,16 @@ public interface IBook
 
 public class Book : IBook
 {
-    private readonly IMessageBus _messageBus;
+    private readonly IObservable _observable;
     private readonly ILogger<IBook> _logger;
     private readonly IDBHandler _dbHandler;
     private const string Id = "book";
-    private const string DanskeBankClientName = "Danske Bank";
+    private const string DanskeBankClientName = "Danske_Bank";
 
 
-    public Book(IMessageBus messageBus, ILogger<IBook> logger, IDBHandler dBHandler)
+    public Book(IObservable observable, ILogger<IBook> logger, IDBHandler dBHandler)
     {
-        _messageBus = messageBus;
+        _observable = observable;
         _logger = logger;
         _dbHandler = dBHandler;
     }
@@ -30,13 +30,13 @@ public class Book : IBook
         var clients = _dbHandler.GetAllClients();
         var topic = TopicGenerator.TopicForAllClients();
             
-        _messageBus.Publish(topic, clients);
+        _observable.Publish(topic, clients);
 
         var topicBookOrder = TopicGenerator.TopicForBookingOrder();
-        _messageBus.Subscribe<TransactionData>(topicBookOrder, Id, BookOrder);
+        _observable.Subscribe<TransactionData>(topicBookOrder, Id, BookOrder);
 
         var topicHedgeOrder = TopicGenerator.TopicForHedgingOrder();
-        _messageBus.Subscribe<(TransactionData, string)>(topicHedgeOrder, Id, HedgeOrder);
+        _observable.Subscribe<(TransactionData, string)>(topicHedgeOrder, Id, HedgeOrder);
     }
 
     public void BookOrder(TransactionData transaction)

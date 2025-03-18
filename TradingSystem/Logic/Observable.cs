@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace TradingSystem.Logic
 {
-    public interface IMessageBus
+    public interface IObservable
     {
         void Subscribe<T>(string key, string subscriberId, Action<T> handler);
         void Unsubscribe(string key, string subscriberId);
@@ -16,7 +16,7 @@ namespace TradingSystem.Logic
         Dictionary<string, List<object>> GetTransientMessages();
     }
 
-    public class MessageBus : IMessageBus
+    public class Observable : IObservable
     {
         private readonly ConcurrentDictionary<string, Dictionary<string, Delegate>> _subscribers = new();
         private readonly ConcurrentDictionary<string, object> _persistentMessages = new();

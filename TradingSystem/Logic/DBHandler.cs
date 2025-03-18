@@ -25,43 +25,70 @@ public interface IDBHandler
     public List<ClientData> GetAllClients();
 
     public void ResetDB();
+    
+    public List<TargetPosition> GetTargetPositions();
 }
 
 public class DBHandler : IDBHandler
 {
     private string databaseFilePath = ".\\Data\\QuoteUnquoteDB.json";
 
-    private readonly IMessageBus _messageBus;
+    private readonly IObservable _observable;
     private const string Id = "DBHandler";
     private BrokerStocks _brokerStocks;
-    private TradingOptions _tradingOptions;
+    private InstrumentsOptions _instrumentsOptions;
     private Lock _readerLock = new();
 
-    public DBHandler(IMessageBus messagebus, IOptions<BrokerStocks> brokerStocks, IOptions<TradingOptions> tradingOptions)
+    public DBHandler(IObservable messagebus, IOptions<BrokerStocks> brokerStocks, IOptions<InstrumentsOptions> tradingOptions)
     {
-        _messageBus = messagebus;
+        _observable = messagebus;
         _brokerStocks = brokerStocks.Value;
-        _tradingOptions = tradingOptions.Value;
+        _instrumentsOptions = tradingOptions.Value;
     }
 
     public void Start()
     {
         ResetDB();
         var topic = TopicGenerator.TopicForLoginRequest();
-        _messageBus.Subscribe<LoginInfo>(topic, Id, CheckLogin);
+        _observable.Subscribe<LoginInfo>(topic, Id, CheckLogin);
         var allClients = GetAllClients();
         foreach (var client in allClients)
         {
             var topicClient = TopicGenerator.TopicForDBDataOfClient(client.ClientId.ToString());
             client.Holdings = GetClientHoldings(client.ClientId);
-            _messageBus.Publish(topicClient, client);
+            _observable.Publish(topicClient, client);
         }
+        
+        var topicAllTargetPositions = TopicGenerator.TopicForAllTargetPositions();
+        var allTargetPositions = GetTargetPositions();
+        foreach (var topicTarget in allTargetPositions.Select(targetPosition => TopicGenerator.TopicForTargetPositionUpdate(targetPosition.InstrumentId)))
+        {
+            _observable.Subscribe<TargetPosition>(topicTarget, Id, UpdateTargetPosition);
+        }
+        _observable.Publish(topicAllTargetPositions, allTargetPositions);
+    }
+
+    private void UpdateTargetPosition(TargetPosition newTarget)
+    {
+        var db = DeserializeDB();
+
+        var targetPosition = db.TargetPositions.Find(t => t.InstrumentId == newTarget.InstrumentId);
+        if (targetPosition != null)
+        {
+            targetPosition.Target = newTarget.Target;
+        }
+        else
+        {
+            db.TargetPositions.Add(newTarget);
+        }
+        
+        Serialize(db);
     }
 
     public void Stop()
     {
         var topic = TopicGenerator.TopicForLoginRequest();
-        _messageBus.Unsubscribe(topic, Id);
+        _observable.Unsubscribe(topic, Id);
     }
 
     public void AddClient(string name)
@@ -146,7 +173,7 @@ public class DBHandler : IDBHandler
                 var topic = TopicGenerator.TopicForDBDataOfClient(buyer.ClientId.ToString());
                 buyer.Holdings = GetClientHoldings(buyer.ClientId);
                 Console.WriteLine($"Publishing buyer balance: {buyer.ClientId} {buyer.Balance}");
-                _messageBus.Publish(topic, buyer);
+                _observable.Publish(topic, buyer);
             }
             var seller = db.Clients.Find(x => x.ClientId == trans.SellerId);
             if (seller != null)
@@ -157,7 +184,7 @@ public class DBHandler : IDBHandler
                 Serialize(db);
                 var topic = TopicGenerator.TopicForDBDataOfClient(seller.ClientId.ToString());
                 seller.Holdings = GetClientHoldings(seller.ClientId);
-                _messageBus.Publish(topic, seller);
+                _observable.Publish(topic, seller);
             }
         }
         Serialize(db);
@@ -285,7 +312,7 @@ public class DBHandler : IDBHandler
         info.ClientId = customer == null ?  Guid.Empty : customer.ClientId;
 
         var topic = TopicGenerator.TopicForLoginResponse();
-        _messageBus.Publish(topic, info, isTransient: true);
+        _observable.Publish(topic, info, isTransient: true);
         return;
     }
 
@@ -297,7 +324,8 @@ public class DBHandler : IDBHandler
             Customers = new List<CustomerData>(),
             Transactions = new List<TransactionData>(),
             Holdings = new List<HoldingData>(),
-            Salts = new List<SaltData>()
+            Salts = new List<SaltData>(),
+            TargetPositions = new List<TargetPosition>()
         };
 
         int initialHoldingSize = 100;
@@ -308,17 +336,22 @@ public class DBHandler : IDBHandler
         db.Clients.Add(new ClientData
         {
             ClientId = danskeBankGuid,
-            Name = "Danske Bank",
+            Name = "Danske_Bank",
             Balance = initialBrokerBalance,
             Tier = "internal"
         });
-        foreach (string s in _tradingOptions.Stocks)
+        foreach (string s in _instrumentsOptions.Stocks)
         {
             db.Holdings.Add(new HoldingData
             {
                 ClientId = danskeBankGuid,
                 InstrumentId = s,
                 Size = initialHoldingSize
+            });
+            db.TargetPositions.Add(new TargetPosition
+            {
+                InstrumentId = s,
+                Target = 97
             });
         }
 
@@ -382,6 +415,12 @@ public class DBHandler : IDBHandler
         AddClientCustomer("Anders", "KP", "KP");
         AddClientCustomer("Mathias", "Dyberg", "KP");
         return;
+    }
+
+    public List<TargetPosition> GetTargetPositions()
+    {
+        var db = DeserializeDB();
+        return db.TargetPositions;
     }
 
     private void Serialize(DatabaseData db)

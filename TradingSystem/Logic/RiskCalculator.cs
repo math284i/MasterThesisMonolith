@@ -11,16 +11,19 @@ public interface IRiskCalculator
 
 public class RiskCalculator : IRiskCalculator
 {
-    private readonly IMessageBus _messageBus;
+    private readonly IObservable _observable;
     private const string Id = "riskCalculator";
+    private const string DanskeBankClientName = "Danske_Bank";
     private List<ClientData> _clients = new List<ClientData>();
-    private ConcurrentDictionary<Guid, ClientData> _clientDatas = new ConcurrentDictionary<Guid, ClientData>();
-    private readonly ILogger<RiskCalculator> _logger;
-    private Random rand = new Random();
+    private readonly ConcurrentDictionary<Guid, ClientData> _clientDatas = new ConcurrentDictionary<Guid, ClientData>();
 
-    public RiskCalculator(IMessageBus messageBus, ILogger<RiskCalculator> logger)
+    private readonly ConcurrentDictionary<string, TargetPosition> _targetPositions =
+        new ConcurrentDictionary<string, TargetPosition>();
+    private readonly ILogger<RiskCalculator> _logger;
+
+    public RiskCalculator(IObservable observable, ILogger<RiskCalculator> logger)
     {
-        _messageBus = messageBus;
+        _observable = observable;
         _logger = logger;
     }
     
@@ -28,23 +31,39 @@ public class RiskCalculator : IRiskCalculator
     {
         var topicForClients = TopicGenerator.TopicForAllClients();
 
-        _messageBus.Subscribe<List<ClientData>>(topicForClients, Id, clients =>
+        _observable.Subscribe<List<ClientData>>(topicForClients, Id, clients =>
         {
             foreach (var client in clients.Where(client => !_clients.Contains(client)))
             {
                 _clients.Add(client);
                 var topicForClientData = TopicGenerator.TopicForDBDataOfClient(client.ClientId.ToString());
 
-                _messageBus.Subscribe<ClientData>(topicForClientData, Id, clientData =>
+                _observable.Subscribe<ClientData>(topicForClientData, Id, clientData =>
                 {
                     _clientDatas.AddOrUpdate(client.ClientId, clientData, (key, oldValue) => clientData);
                 });
             }
         });
+
+        var topicAllTargets = TopicGenerator.TopicForAllTargetPositions();
+        _observable.Subscribe<List<TargetPosition>>(topicAllTargets, Id, targets =>
+        {
+            foreach (var target in targets.Where(target => !_targetPositions.ContainsKey(target.InstrumentId)))
+            {
+                _targetPositions.AddOrUpdate(target.InstrumentId, target, (key, oldValue) => target);
+                var topicForTarget = TopicGenerator.TopicForTargetPositionUpdate(target.InstrumentId);
+                _observable.Subscribe<TargetPosition>(topicForTarget, Id, targetPosition =>
+                {
+                    Console.WriteLine($"Got target position {targetPosition}");
+                    _targetPositions.AddOrUpdate(targetPosition.InstrumentId, targetPosition, (key, oldValue) => targetPosition);
+                });
+            }
+        });
+        
         // TODO retrieve all clients currently in book, so we can start to calculate their risk already
         // TODO also retrieve their book to keep in cache, so that clientAPI can get it straight from here. 
         var topic = TopicGenerator.TopicForClientBuyOrder();
-        _messageBus.Subscribe<Order>(topic, Id, CheckOrder);
+        _observable.Subscribe<Order>(topic, Id, CheckOrder);
     }
 
     private void CheckOrder(Order order)
@@ -56,9 +75,8 @@ public class RiskCalculator : IRiskCalculator
             return;
         }
 
-        //TODO: Add logic to determine whether order should be hedged. Currently just randomly selects whether to hedge order
-        order.HedgeOrder = (rand.Next(0, 2) > 0);
-        //order.HedgeOrder = true;
+        
+        order.HedgeOrder = ShouldWeHedge(order);
 
         if (order.Side == OrderSide.RightSided)
         {
@@ -69,7 +87,7 @@ public class RiskCalculator : IRiskCalculator
             {
                 _logger.LogInformation("RiskCalculator accepting order");
                 var topic = TopicGenerator.TopicForClientBuyOrderApproved();
-                _messageBus.Publish(topic, order, isTransient: true);
+                _observable.Publish(topic, order, isTransient: true);
             }
             else
             {
@@ -77,7 +95,7 @@ public class RiskCalculator : IRiskCalculator
                 var topic = TopicGenerator.TopicForClientOrderEnded(order.ClientId.ToString());
                 order.Status = OrderStatus.Rejected;
                 order.ErrorMesssage = "Insufficient Funds";
-                _messageBus.Publish(topic, order, isTransient: true);
+                _observable.Publish(topic, order, isTransient: true);
             }
         }
         else
@@ -105,7 +123,29 @@ public class RiskCalculator : IRiskCalculator
                 order.Status = OrderStatus.Rejected;
                 order.ErrorMesssage = $"Client doesn't own any stock of {order.Stock.InstrumentId}";
             }
-            _messageBus.Publish(topic, order, isTransient: true);
+            _observable.Publish(topic, order, isTransient: true);
+        }
+    }
+
+    private bool ShouldWeHedge(Order order)
+    {
+        var danskeBank = _clients.Find(c => c.Name == DanskeBankClientName);
+        if (danskeBank == null) return true;
+        var danskeData = _clientDatas[danskeBank.ClientId];
+        var danskeStock = danskeData.Holdings.Find(h => h.InstrumentId == order.Stock.InstrumentId);
+        if (danskeStock == null) return true;
+        var targetPosition = _targetPositions[order.Stock.InstrumentId];
+
+        if (order.Side == OrderSide.RightSided)
+        {
+            // Buy
+            if (targetPosition.Target >= danskeStock.Size) return true;
+            return danskeStock.Size < order.Stock.Size;
+        }
+        else
+        {
+            // Sell
+            return targetPosition.Target <= danskeStock.Size;
         }
     }
 

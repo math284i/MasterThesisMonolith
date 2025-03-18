@@ -16,18 +16,18 @@ public interface IPricerEngine
 public class PricerEngine : IPricerEngine
 {
     private readonly ILogger<PricerEngine> _logger;
-    private readonly Dictionary<string, HashSet<StockOptions>> _clientsDict = new();
-    private readonly HashSet<StockOptions> _referencePrices;
-    private readonly IOptions<TradingOptions> _tradingOptions;
-    private readonly IMessageBus _messageBus;
+    private readonly Dictionary<string, HashSet<Stocks>> _clientsDict = new();
+    private readonly HashSet<Stocks> _referencePrices;
+    private readonly IOptions<InstrumentsOptions> _tradingOptions;
+    private readonly IObservable _observable;
     private const string Id = "pricerEngine";
 
-    public PricerEngine(ILogger<PricerEngine> logger, IOptions<TradingOptions> stocksOptions, IMessageBus messageBus)
+    public PricerEngine(ILogger<PricerEngine> logger, IOptions<InstrumentsOptions> stocksOptions, IObservable observable)
     {
         _logger = logger;
-        _referencePrices = new HashSet<StockOptions>();
+        _referencePrices = new HashSet<Stocks>();
         _tradingOptions = stocksOptions;
-        _messageBus = messageBus;
+        _observable = observable;
         
     }
 
@@ -38,17 +38,17 @@ public class PricerEngine : IPricerEngine
 
         foreach (var stock in stocks)
         {
-            var newStock = new StockOptions
+            var newStock = new Stocks
             {
                 InstrumentId = stock,
                 Price = 0.0f
             };
             _referencePrices.Add(newStock);
             var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(newStock.InstrumentId);
-            _messageBus.Subscribe<StockOptions>(stockTopic, Id, UpdatePrice);
+            _observable.Subscribe<Stocks>(stockTopic, Id, UpdatePrice);
         }
         var topic = TopicGenerator.TopicForAllInstruments();
-        _messageBus.Publish(topic, _referencePrices);
+        _observable.Publish(topic, _referencePrices);
         _logger.PricerEngineStarted();
     }
 
@@ -57,11 +57,11 @@ public class PricerEngine : IPricerEngine
         // TODO unsubscribe to everything
     }
 
-    private void UpdatePrice(StockOptions stock)
+    private void UpdatePrice(Stocks stock)
     {
         //Reference price should be updated aswell.
         _logger.PricerEngineReceivedNewPrice(stock.InstrumentId, stock.Price);
         var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
-        _messageBus.Publish(stockTopic, stock);
+        _observable.Publish(stockTopic, stock);
     }
 }

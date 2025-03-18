@@ -7,7 +7,7 @@
 @using Console = System.Console
 @inject JsLogger Logger
 @inject IClient ClientService
-@inject IMessageBus MessageBus
+@inject IObservable Observable
 @rendermode InteractiveServer
 @inherits LayoutComponentBase
 @inject ToastService ToastService
@@ -140,7 +140,7 @@
 @* <Toasts class="p-3" AutoHide="true" Delay="4000" Placement="ToastsPlacement.BottomCenter" /> *@
 
 @code {
-    private Dictionary<Guid, HashSet<StockOptions>> stocks = new();
+    private Dictionary<Guid, HashSet<Stocks>> stocks = new();
     private bool _isAuthenticated;
     private bool _isDevelopment = true;
     private string _developmentInstrumentId = "";
@@ -150,7 +150,7 @@
     private string _clientPassword = "";
     private string _tmpOrderstatus = "";
     private string _tmpErrorMessage = "";
-    private readonly Dictionary<Guid, List<StockOptions>> _selectedStocksPerClient = new();
+    private readonly Dictionary<Guid, List<Stocks>> _selectedStocksPerClient = new();
     private List<HoldingData> _holdings = new();
     private float _balance = 0.0f;
 
@@ -165,14 +165,14 @@
         if (_isAuthenticated)
         {
             _clientId = info.ClientId;
-            stocks[_clientId] = ClientService.GetStockOptions<HashSet<StockOptions>>(stockOptions =>
+            stocks[_clientId] = ClientService.GetStockOptions<HashSet<Stocks>>(stockOptions =>
             {
                 stocks[_clientId] = stockOptions;
             });
 
             if (!_selectedStocksPerClient.ContainsKey(_clientId))
             {
-                _selectedStocksPerClient[_clientId] = new List<StockOptions>();
+                _selectedStocksPerClient[_clientId] = new List<Stocks>();
             }
         }else
         {
@@ -180,7 +180,7 @@
         }
     }
 
-    private void UpdateSelectedStocks(ChangeEventArgs args, StockOptions stock)
+    private void UpdateSelectedStocks(ChangeEventArgs args, Stocks stock)
     {
         Console.WriteLine($"Updating stock: {stock.InstrumentId} enabled: {(bool)args.Value}");
         var enabled = (bool)(args.Value ?? false);
@@ -194,7 +194,7 @@
 
         if (!_selectedStocksPerClient.ContainsKey(_clientId))
         {
-            _selectedStocksPerClient[_clientId] = new List<StockOptions>();
+            _selectedStocksPerClient[_clientId] = new List<Stocks>();
         }
 
         var selectedStocks = _selectedStocksPerClient[_clientId];
@@ -213,7 +213,7 @@
         ClientService.StreamPrice(info, UpdatePrice);
     }
 
-    private async void UpdatePrice(StockOptions stock)
+    private async void UpdatePrice(Stocks stock)
     {
         if (!_selectedStocksPerClient.TryGetValue(_clientId, out var selectedStocks)) return;
 
@@ -224,7 +224,7 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private async void BuyStock(StockOptions stock)
+    private async void BuyStock(Stocks stock)
     {
         if (stock.Price == 0 || stock.Size < 1)
         {
@@ -296,13 +296,13 @@
     
     private async void SimulateNewPrice()
     {
-        var stock = new StockOptions
+        var stock = new Stocks
         {
             InstrumentId = _developmentInstrumentId,
             Price = _developmentPrice
         };
         var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
-        MessageBus.Publish(stockTopic, stock);
+        Observable.Publish(stockTopic, stock);
  
         await ToastService.Success("Success", "New price successfully put on the bus", autoHide: true);
     }

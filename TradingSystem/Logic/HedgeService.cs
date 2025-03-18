@@ -10,7 +10,7 @@ public interface IHedgeService
 }
 
 
-public class HedgeService(IMessageBus messageBus, INordea nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ) : IHedgeService
+public class HedgeService(IObservable observable, INordea nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ) : IHedgeService
 {
     private Dictionary<string, List<string>> brokerInventory = new();
     private const string Id = "hedgeService";
@@ -22,7 +22,7 @@ public class HedgeService(IMessageBus messageBus, INordea nordea, IJPMorgan JPMo
         brokerInventory.Add("NASDAQ", NASDAQ.getStocks());
 
         var topic = TopicGenerator.TopicForHedgingOrderRequest();
-        messageBus.Subscribe<TransactionData>(topic, Id, HandleHedgeRequest);
+        observable.Subscribe<TransactionData>(topic, Id, HandleHedgeRequest);
     }
 
     public void HandleHedgeRequest(TransactionData trans)
@@ -37,12 +37,12 @@ public class HedgeService(IMessageBus messageBus, INordea nordea, IJPMorgan JPMo
         }
 
         var topic = TopicGenerator.TopicForHedgingOrderResponse();
-        messageBus.Publish(topic, (trans, brokerName), isTransient: true);
+        observable.Publish(topic, (trans, brokerName), isTransient: true);
     }
 
     public void Stop()
     {
         var topic = TopicGenerator.TopicForHedgingOrderRequest();
-        messageBus.Unsubscribe(topic, Id);
+        observable.Unsubscribe(topic, Id);
     }
 }

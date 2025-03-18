@@ -1,6 +1,6 @@
 @page "/MessageBus"
 @using TradingSystem.Logic
-@inject IMessageBus messageBus
+@inject IObservable Observable
 
 <h2>Message Bus Monitor</h2>
 
@@ -78,9 +78,9 @@
 
     private void RefreshData()
     {
-        _subscribers = messageBus.GetSubscribers();
-        _persistentMessages = messageBus.GetPersistentMessages();
-        _transientMessages = messageBus.GetTransientMessages();
+        _subscribers = Observable.GetSubscribers();
+        _persistentMessages = Observable.GetPersistentMessages();
+        _transientMessages = Observable.GetTransientMessages();
         StateHasChanged();
 
         const int threeSecondsInMilliseconds = 3000;
