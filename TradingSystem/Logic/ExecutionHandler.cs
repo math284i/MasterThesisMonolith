@@ -50,6 +50,9 @@ public class ExecutionHandler : IExecutionHandler
         });
         var topic = TopicGenerator.TopicForClientBuyOrderApproved();
         _messageBus.Subscribe<Order>(topic, Id, HandleBuyOrder);
+
+        var topicHedgeResponse = TopicGenerator.TopicForHedgingOrderResponse();
+        _messageBus.Subscribe<(TransactionData, string)>(topicHedgeResponse, Id, BookHedgedOrder);
     }
 
     private void HandleBuyOrder(Order order)
@@ -77,23 +80,37 @@ public class ExecutionHandler : IExecutionHandler
             transaction.SellerId = order.ClientId;
             transaction.BuyerId = Guid.Empty;
         }
-        
+
         if (matchingStock.Price == order.Stock.Price)
         {
             // TODO Here check if we should book it our self or we should hedge it to the market
             _logger.LogInformation($"Letting {order.ClientId} buy order {order.Stock.InstrumentId} at price {order.Stock.Price} quantity {order.Stock.Size}");
-            
+
             // TODO if we send it to the market, wait for their acceptance before telling the client it was succeded.
             // TODO if sent to the market, create 2 books.
             order.Status = OrderStatus.Success;
 
             transaction.Succeeded = true;
-            var topicBook = TopicGenerator.TopicForBookingOrder();
+            var topicBook = "";
+            if (order.HedgeOrder)
+            {
+                topicBook = TopicGenerator.TopicForHedgingOrderRequest();
+            }
+            else
+            {
+                topicBook = TopicGenerator.TopicForBookingOrder();
+            }
             _messageBus.Publish(topicBook, transaction, isTransient: true);
-            
+
             var topicClient = TopicGenerator.TopicForClientOrderEnded(order.ClientId.ToString());
             _messageBus.Publish(topicClient, order, isTransient: true);
         }
+    }
+
+    public void BookHedgedOrder((TransactionData trans, string brokerName) response)
+    {
+        var topic = TopicGenerator.TopicForHedgingOrder();
+        _messageBus.Publish(topic, response, isTransient: true);
     }
 
     public void Stop()

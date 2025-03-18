@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -19,6 +20,7 @@ public interface IDBHandler
     public Guid GetClientGuid(string name);
     public List<TransactionData> GetClientTransactions(string name);
     public List<HoldingData> GetClientHoldings(Guid clientId);
+    public List<HoldingData> GetAllHoldings();
 
     public List<ClientData> GetAllClients();
 
@@ -31,10 +33,15 @@ public class DBHandler : IDBHandler
 
     private readonly IMessageBus _messageBus;
     private const string Id = "DBHandler";
+    private BrokerStocks _brokerStocks;
+    private TradingOptions _tradingOptions;
+    private Lock _readerLock = new();
 
-    public DBHandler(IMessageBus messagebus)
+    public DBHandler(IMessageBus messagebus, IOptions<BrokerStocks> brokerStocks, IOptions<TradingOptions> tradingOptions)
     {
         _messageBus = messagebus;
+        _brokerStocks = brokerStocks.Value;
+        _tradingOptions = tradingOptions.Value;
     }
 
     public void Start()
@@ -251,6 +258,12 @@ public class DBHandler : IDBHandler
         return holdings;
     }
 
+    public List<HoldingData> GetAllHoldings()
+    {
+        DatabaseData db = DeserializeDB();
+        return db.Holdings;
+    }
+
     public List<ClientData> GetAllClients()
     {
         DatabaseData db = DeserializeDB();
@@ -283,13 +296,82 @@ public class DBHandler : IDBHandler
             Holdings = new List<HoldingData>(),
             Salts = new List<SaltData>()
         };
+
+        int initialHoldingSize = 100;
+        float initialBrokerBalance = 1000000.0f;
+        string externalBrokerTier = "external";
+
+        var danskeBankGuid = Guid.NewGuid();
         db.Clients.Add(new ClientData
         {
-            ClientId = Guid.NewGuid(),
+            ClientId = danskeBankGuid,
             Name = "Danske Bank",
-            Balance = 1000000.0f,
+            Balance = initialBrokerBalance,
             Tier = "internal"
         });
+        foreach (string s in _tradingOptions.Stocks)
+        {
+            db.Holdings.Add(new HoldingData
+            {
+                ClientId = danskeBankGuid,
+                InstrumentId = s,
+                Size = initialHoldingSize
+            });
+        }
+
+        var nordeaGuid = Guid.NewGuid();
+        db.Clients.Add(new ClientData
+        {
+            ClientId = nordeaGuid,
+            Name = "Nordea",
+            Balance = initialBrokerBalance,
+            Tier = externalBrokerTier
+        });
+        foreach (string s in _brokerStocks.Nordea)
+        {
+            db.Holdings.Add(new HoldingData
+            {
+                ClientId = nordeaGuid,
+                InstrumentId = s,
+                Size = initialHoldingSize
+            });
+        }
+
+        var NASDAQGuid = Guid.NewGuid();
+        db.Clients.Add(new ClientData
+        {
+            ClientId = NASDAQGuid,
+            Name = "NASDAQ",
+            Balance = initialBrokerBalance,
+            Tier = externalBrokerTier
+        });
+        foreach (string s in _brokerStocks.NASDAQ)
+        {
+            db.Holdings.Add(new HoldingData
+            {
+                ClientId = NASDAQGuid,
+                InstrumentId = s,
+                Size = initialHoldingSize
+            });
+        }
+
+        var JPMorganGuid = Guid.NewGuid();
+        db.Clients.Add(new ClientData
+        {
+            ClientId = JPMorganGuid,
+            Name = "JPMorgan",
+            Balance = initialBrokerBalance,
+            Tier = externalBrokerTier
+        });
+        foreach (string s in _brokerStocks.JPMorgan)
+        {
+            db.Holdings.Add(new HoldingData
+            {
+                ClientId = JPMorganGuid,
+                InstrumentId = s,
+                Size = initialHoldingSize
+            });
+        }
 
         //TODO: Add initial holdings
         Serialize(db);
@@ -308,8 +390,11 @@ public class DBHandler : IDBHandler
 
     private DatabaseData DeserializeDB()
     {
-        string jsonString = File.ReadAllText(databaseFilePath);
-        return JsonSerializer.Deserialize<DatabaseData>(jsonString)!;
+        lock(_readerLock)
+        {
+            string jsonString = File.ReadAllText(databaseFilePath);
+            return JsonSerializer.Deserialize<DatabaseData>(jsonString)!;
+        }
     }
 
     private string hashPassword(string password, Guid clientId, DatabaseData db)

@@ -16,7 +16,8 @@ public class RiskCalculator : IRiskCalculator
     private List<ClientData> _clients = new List<ClientData>();
     private ConcurrentDictionary<Guid, List<HoldingData>> _clientHoldings = new ConcurrentDictionary<Guid, List<HoldingData>>();
     private readonly ILogger<RiskCalculator> _logger;
-    
+    private Random rand = new Random();
+
     public RiskCalculator(IMessageBus messageBus, ILogger<RiskCalculator> logger)
     {
         _messageBus = messageBus;
@@ -64,6 +65,10 @@ public class RiskCalculator : IRiskCalculator
             _logger.LogError("Risk calculator, Client {ClientId} not found", order.ClientId);
             return;
         }
+
+        //TODO: Add logic to determine whether order should be hedged. Currently just randomly selects whether to hedge order
+        order.HedgeOrder = (rand.Next(0, 2) > 0);
+        //order.HedgeOrder = true;
 
         if (order.Side == OrderSide.RightSided)
         {

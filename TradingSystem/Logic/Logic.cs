@@ -7,6 +7,7 @@ public class Logic : IHostedService
     private readonly ILogger<Logic> _logger;
     private readonly IPricerEngine _pricerEngine;
     private readonly IMarketDataGateway _marketDataGateway;
+    private readonly IHedgeService _hedgeService;
     private readonly IRiskCalculator _riskCalculator;
     private readonly IExecutionHandler _executionHandler;
     private readonly IDBHandler _dbHandler;
@@ -15,6 +16,7 @@ public class Logic : IHostedService
     public Logic(ILogger<Logic> logger
         , IPricerEngine pricerEngine
         , IMarketDataGateway marketDataGateway
+        , IHedgeService hedgeService
         , IRiskCalculator riskCalculator
         , IExecutionHandler executionHandler
         , IDBHandler dbHandler
@@ -23,6 +25,7 @@ public class Logic : IHostedService
         _logger = logger;
         _pricerEngine = pricerEngine;
         _marketDataGateway = marketDataGateway;
+        _hedgeService = hedgeService;
         _riskCalculator = riskCalculator;
         _executionHandler = executionHandler;
         _dbHandler = dbHandler;
@@ -37,6 +40,7 @@ public class Logic : IHostedService
         _book.Start();
         _pricerEngine.Start();
         _marketDataGateway.Start();
+        _hedgeService.Start();
         _executionHandler.Start();
         _riskCalculator.Start();
         
@@ -53,6 +57,7 @@ public class Logic : IHostedService
         _book.Stop();
         _pricerEngine.Stop();
         _marketDataGateway.Stop();
+        _hedgeService.Stop();
         _riskCalculator.Stop();
         _executionHandler.Stop();
         

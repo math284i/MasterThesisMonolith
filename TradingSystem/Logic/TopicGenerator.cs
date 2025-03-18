@@ -52,6 +52,19 @@ public class TopicGenerator
         return "BookOrder";
     }
 
+    public static string TopicForHedgingOrder()
+    {
+        return "HedgeOrder";
+    }
+    public static string TopicForHedgingOrderRequest()
+    {
+        return "HedgeOrderRequest";
+    }
+    public static string TopicForHedgingOrderResponse()
+    {
+        return "HedgeOrderResponse";
+    }
+
     public static string TopicForHoldingOfClient(string clientId)
     {
         return "holdingOfClient" + clientId;
