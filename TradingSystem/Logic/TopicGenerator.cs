@@ -69,4 +69,10 @@ public class TopicGenerator
     {
         return "holdingOfClient" + clientId;
     }
+
+    public static string TopicForDBDataOfClient(string clientId)
+    {
+        return "dbDataOfClient" + clientId;
+    }
+    
 }
