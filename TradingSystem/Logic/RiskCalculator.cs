@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using TradingSystem.Components.Pages;
 using TradingSystem.Data;
 
 namespace TradingSystem.Logic;
@@ -111,6 +112,15 @@ public class RiskCalculator : IRiskCalculator
 
     public void Stop()
     {
-        
+        var topic = TopicGenerator.TopicForClientBuyOrder();
+        _messageBus.Unsubscribe(topic, Id);
+        foreach (var client in _clients)
+        {
+            var topicForClientData = TopicGenerator.TopicForDBDataOfClient(client.ClientId.ToString());
+
+            _messageBus.Unsubscribe(topicForClientData, Id);
+        }
+        _clients = new List<ClientData>();
+        _clientDatas = new ConcurrentDictionary<Guid, ClientData>();
     }
 }

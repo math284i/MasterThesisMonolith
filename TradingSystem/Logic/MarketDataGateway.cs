@@ -7,6 +7,8 @@ public interface IMarketDataGateway
 {
     public void Start();
     public void Stop();
+
+    public void setSimSpeed(int newSpeed);
 }
 
 
@@ -17,6 +19,7 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
     private readonly CancellationTokenSource _cts = new();
     private Lock _simulationLock = new();
     private const string Id = "marketDataGateway";
+    private int simSpeed = 25;
 
     public void Start()
     {
@@ -83,7 +86,6 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
         bool firstInLocker = true;
 
         //Each API has a 1/simSpeed chance of simulating a price change every half second.
-        int simSpeed = 25;
 
         Task<StockOptions> funNordea() => Task.Run( () =>
         {
@@ -117,4 +119,13 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
     {
         _cts.Cancel();
     }
+
+    public void setSimSpeed(int newSpeed)
+    {
+        if(newSpeed > 0)
+        {
+            simSpeed = newSpeed;
+        }
+    }
+
 }
