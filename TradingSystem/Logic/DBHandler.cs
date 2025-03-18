@@ -45,8 +45,9 @@ public class DBHandler : IDBHandler
         var allClients = GetAllClients();
         foreach (var client in allClients)
         {
-            var topicClient = TopicGenerator.TopicForHoldingOfClient(client.ClientId.ToString());
-            _messageBus.Publish(topicClient, GetClientHoldings(client.ClientId));
+            var topicClient = TopicGenerator.TopicForDBDataOfClient(client.ClientId.ToString());
+            client.Holdings = GetClientHoldings(client.ClientId);
+            _messageBus.Publish(topicClient, client);
         }
     }
 
@@ -70,7 +71,8 @@ public class DBHandler : IDBHandler
             ClientId = Guid.NewGuid(),
             Name = name,
             Balance = 100.0f, //TODO: Figure out a good starting balance for new clients
-            Tier = "Average" //TODO: Figure out a good tier system
+            Tier = "Average", //TODO: Figure out a good tier system
+            Holdings = new List<HoldingData>(),
         };
 
         db.Clients.Add(client);
@@ -99,7 +101,8 @@ public class DBHandler : IDBHandler
             ClientId = ID,
             Name = name,
             Balance = 100.0f, //TODO: Figure out a good starting balance for new clients
-            Tier = "Regular" //TODO: Figure out a good tier system
+            Tier = "Regular", //TODO: Figure out a good tier system
+            Holdings = new List<HoldingData>(),
         };
         db.Clients.Add(client);
 
@@ -133,8 +136,10 @@ public class DBHandler : IDBHandler
                 buyer.Balance -= trans.Size * trans.Price;
                 db.Clients.Add(buyer);
                 Serialize(db);
-                var topic = TopicGenerator.TopicForHoldingOfClient(buyer.ClientId.ToString());
-                _messageBus.Publish(topic, GetClientHoldings(buyer.ClientId), isTransient: true);
+                var topic = TopicGenerator.TopicForDBDataOfClient(buyer.ClientId.ToString());
+                buyer.Holdings = GetClientHoldings(buyer.ClientId);
+                Console.WriteLine($"Publishing buyer balance: {buyer.ClientId} {buyer.Balance}");
+                _messageBus.Publish(topic, buyer);
             }
             var seller = db.Clients.Find(x => x.ClientId == trans.SellerId);
             if (seller != null)
@@ -143,8 +148,9 @@ public class DBHandler : IDBHandler
                 seller.Balance += trans.Size * trans.Price;
                 db.Clients.Add(seller);
                 Serialize(db);
-                var topic = TopicGenerator.TopicForHoldingOfClient(seller.ClientId.ToString());
-                _messageBus.Publish(topic, GetClientHoldings(seller.ClientId), isTransient: true);
+                var topic = TopicGenerator.TopicForDBDataOfClient(seller.ClientId.ToString());
+                seller.Holdings = GetClientHoldings(seller.ClientId);
+                _messageBus.Publish(topic, seller);
             }
         }
         Serialize(db);
@@ -171,10 +177,8 @@ public class DBHandler : IDBHandler
             currentHoldBuyer.Size += trans.Size;
             db.Holdings.Add(currentHoldBuyer);
         }
-
-        Serialize(db);
-        var topicBuyer = TopicGenerator.TopicForHoldingOfClient(trans.BuyerId.ToString());
-        _messageBus.Publish(topicBuyer, GetClientHoldings(trans.BuyerId));
+        // var topicBuyer = TopicGenerator.TopicForHoldingOfClient(trans.BuyerId.ToString());
+        // _messageBus.Publish(topicBuyer, GetClientHoldings(trans.BuyerId));
         var currentHoldSeller = db.Holdings.Find(x => x.ClientId == trans.SellerId && x.InstrumentId == trans.InstrumentId);
         if (currentHoldSeller == null)
         {
@@ -192,9 +196,8 @@ public class DBHandler : IDBHandler
             currentHoldSeller.Size -= trans.Size;
             db.Holdings.Add(currentHoldSeller);
         }
-        Serialize(db);
-        var topicSeller = TopicGenerator.TopicForHoldingOfClient(trans.SellerId.ToString());
-        _messageBus.Publish(topicSeller, GetClientHoldings(trans.SellerId));
+        // var topicSeller = TopicGenerator.TopicForHoldingOfClient(trans.SellerId.ToString());
+        // _messageBus.Publish(topicSeller, GetClientHoldings(trans.SellerId));
         return db;
     }
 

@@ -14,7 +14,7 @@ public class RiskCalculator : IRiskCalculator
     private readonly IMessageBus _messageBus;
     private const string Id = "riskCalculator";
     private List<ClientData> _clients = new List<ClientData>();
-    private ConcurrentDictionary<Guid, List<HoldingData>> _clientHoldings = new ConcurrentDictionary<Guid, List<HoldingData>>();
+    private ConcurrentDictionary<Guid, ClientData> _clientDatas = new ConcurrentDictionary<Guid, ClientData>();
     private readonly ILogger<RiskCalculator> _logger;
     
     public RiskCalculator(IMessageBus messageBus, ILogger<RiskCalculator> logger)
@@ -26,28 +26,19 @@ public class RiskCalculator : IRiskCalculator
     public void Start()
     {
         var topicForClients = TopicGenerator.TopicForAllClients();
-        var tmpBoolAlreadySubscribed = false;
+
         _messageBus.Subscribe<List<ClientData>>(topicForClients, Id, clients =>
         {
-            
-            _clients = clients; // TODO make this threadsafe
-            if (!tmpBoolAlreadySubscribed)
+            foreach (var client in clients.Where(client => !_clients.Contains(client)))
             {
-                foreach (var client in _clients)
+                _clients.Add(client);
+                var topicForClientData = TopicGenerator.TopicForDBDataOfClient(client.ClientId.ToString());
+
+                _messageBus.Subscribe<ClientData>(topicForClientData, Id, clientData =>
                 {
-                    _logger.LogInformation($"Subscribed to {client}");
-                    var topicForHolding = TopicGenerator.TopicForHoldingOfClient(client.ClientId.ToString());
-                    _messageBus.Subscribe<List<HoldingData>>(topicForHolding, Id, holding =>
-                    {
-                        if (!_clientHoldings.TryAdd(client.ClientId, holding))
-                        {
-                            _clientHoldings[client.ClientId] = holding;
-                        }
-                    });
-                }
+                    _clientDatas.AddOrUpdate(client.ClientId, clientData, (key, oldValue) => clientData);
+                });
             }
-            tmpBoolAlreadySubscribed = true;
-            
         });
         // TODO retrieve all clients currently in book, so we can start to calculate their risk already
         // TODO also retrieve their book to keep in cache, so that clientAPI can get it straight from here. 
@@ -57,9 +48,8 @@ public class RiskCalculator : IRiskCalculator
 
     private void CheckOrder(Order order)
     {
-        // TODO distinguish between buy and sell, using orderSide, Right = buy, left = sell
-        var clientAmount = _clients.Find(c => c.ClientId == order.ClientId);
-        if (clientAmount == null)
+        _clientDatas.TryGetValue(order.ClientId, out var clientData);
+        if (clientData == null)
         {
             _logger.LogError("Risk calculator, Client {ClientId} not found", order.ClientId);
             return;
@@ -68,7 +58,9 @@ public class RiskCalculator : IRiskCalculator
         if (order.Side == OrderSide.RightSided)
         {
             // Buy
-            if (clientAmount.Balance >= order.Stock.Price * order.Stock.Size)
+            float price = order.Stock.Price * order.Stock.Size;
+            Console.WriteLine($"Buying for {price} balance is: {clientData.Balance}");
+            if (clientData.Balance >= price)
             {
                 _logger.LogInformation("RiskCalculator accepting order");
                 var topic = TopicGenerator.TopicForClientBuyOrderApproved();
@@ -86,7 +78,7 @@ public class RiskCalculator : IRiskCalculator
         else
         {
             // Sell
-            var holding = _clientHoldings[order.ClientId].Find(h => h.InstrumentId == order.Stock.InstrumentId);
+            var holding = _clientDatas[order.ClientId].Holdings.Find(h => h.InstrumentId == order.Stock.InstrumentId);
             Console.WriteLine($"Riskcalculator holding: {holding.ClientId} {holding.InstrumentId}, {holding.Size}");
             var topic = "";
             if (holding != null)

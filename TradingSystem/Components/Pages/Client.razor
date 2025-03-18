@@ -38,6 +38,7 @@
         {
             <div class="content">
                 <h3>Logged in as <span class="highlight">@_clientUsername</span></h3>
+                <h5>Balance @_balance.ToString("C")</h5>
                 <div class="stocks-container">
                     <!-- Stock Selection -->
                     <div class="stock-selection">
@@ -151,10 +152,11 @@
     private string _tmpErrorMessage = "";
     private readonly Dictionary<Guid, List<StockOptions>> _selectedStocksPerClient = new();
     private List<HoldingData> _holdings = new();
+    private float _balance = 0.0f;
 
     private void Login()
     {
-        ClientService.Login(_clientUsername, _clientPassword, LoginSuccess, UpdateHolding);
+        ClientService.Login(_clientUsername, _clientPassword, LoginSuccess, UpdateClientData);
     }
 
     private async void LoginSuccess(LoginInfo info)
@@ -224,9 +226,9 @@
 
     private async void BuyStock(StockOptions stock)
     {
-        if (stock.Price == 0)
+        if (stock.Price == 0 || stock.Size < 1)
         {
-            await ToastService.Error("Error", "Cannot buy stock without a valid price", autoHide: true);
+            await ToastService.Error("Error", "Cannot buy stock without a valid price or a size less than 1", autoHide: true);
             return;
         }
         const OrderSide side = OrderSide.RightSided;
@@ -247,9 +249,9 @@
             await ToastService.Error("Error", $"No stocks of type {holdingData.InstrumentId} in your holding", autoHide: true);
             return;
         }
-        if (stock.Price == 0)
+        if (stock.Price == 0 || size < 1)
         {
-            await ToastService.Error("Error", "Cannot sell stock without a valid price", autoHide: true);
+            await ToastService.Error("Error", "Cannot sell stock without a valid price or with size less than 1", autoHide: true);
             return;
         }
 
@@ -285,9 +287,10 @@
         //_tmpErrorMessage = order.ErrorMesssage;
     }
 
-    private async void UpdateHolding(List<HoldingData> holdings)
+    private async void UpdateClientData(ClientData data)
     {
-        _holdings = holdings;
+        _holdings = data.Holdings;
+        _balance = data.Balance;
         await InvokeAsync(StateHasChanged);
     }
     
