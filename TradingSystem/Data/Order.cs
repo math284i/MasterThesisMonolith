@@ -7,4 +7,5 @@ public class Order
     public required StockOptions Stock;
     public OrderStatus Status;
     public string ErrorMesssage = "";
+    public bool HedgeOrder;
 }

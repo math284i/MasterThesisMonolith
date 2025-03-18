@@ -8,11 +8,13 @@ namespace TradingSystem.Logic.ExternalBrokers
     {
         public StockOptions simulatePriceChange(int simSpeed, ref Lock simulationLock, ref CancellationToken token, ref bool first);
         public Dictionary<string, float> getPrices();
+        public List<string> getStocks();
     }
 
     public class NordeaAPI : INordea
     {
         private readonly ILogger<NordeaAPI> _logger;
+        private List<string> myStocks = new();
         private Dictionary<string, float> myPrices = new Dictionary<string, float>();
         private Random rand = new Random();
         
@@ -21,12 +23,19 @@ namespace TradingSystem.Logic.ExternalBrokers
             _logger = logger;
             var options = brokerStocks.Value;
             foreach (string name in options.Nordea)
+            {
                 myPrices.Add(name, 10.0f);
+                myStocks.Add(name);
+            }
         }
 
         public Dictionary<string, float> getPrices()
         {
             return myPrices;
+        }
+        public List<string> getStocks()
+        {
+            return myStocks;
         }
 
         public StockOptions simulatePriceChange(int simSpeed, ref Lock simulationLock, ref CancellationToken token, ref bool first)

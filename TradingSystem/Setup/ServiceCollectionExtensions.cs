@@ -30,6 +30,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IClient, ClientAPI>();
         services.AddSingleton<IMarketDataGateway, MarketDataGateway>();
         services.AddSingleton<IPricerEngine, PricerEngine>();
+        services.AddSingleton<IHedgeService, HedgeService>();
         services.AddHostedService<Logic.Logic>();
         return services;
 
