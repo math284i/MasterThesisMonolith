@@ -10,6 +10,7 @@ namespace TradingSystem.Logic
         void Subscribe<T>(string key, string subscriberId, Action<T> handler);
         void Unsubscribe(string key, string subscriberId);
         void Publish<T>(string key, T message, bool isTransient = false);
+        void ClearDBPersistantMessages();
 
         Dictionary<string, List<string>> GetSubscribers();
         Dictionary<string, object> GetPersistentMessages();
@@ -85,6 +86,18 @@ namespace TradingSystem.Logic
                 }
             }
         }
+
+        public void ClearDBPersistantMessages()
+        {
+            foreach (KeyValuePair<string,object> entry in _persistentMessages)
+            {
+                var topic = TopicGenerator.TopicForDBDataOfClient("");
+                if (entry.Key.Contains(topic)) {
+                    _persistentMessages.TryRemove(entry);
+                }
+            }
+        }
+
         public Dictionary<string, List<string>> GetSubscribers()
         {
             return _subscribers.ToDictionary(

@@ -46,7 +46,7 @@ public class DBHandler : IDBHandler
 
     public void Start()
     {
-        ResetDB();
+        //ResetDB();
         var topic = TopicGenerator.TopicForLoginRequest();
         _messageBus.Subscribe<LoginInfo>(topic, Id, CheckLogin);
         var allClients = GetAllClients();
@@ -380,7 +380,8 @@ public class DBHandler : IDBHandler
         Serialize(db);
 
         AddClientCustomer("Anders", "KP", "KP");
-        AddClientCustomer("Mathias", "Dyberg", "KP");
+        AddClientCustomer("Anders2", "KP2", "KP");
+        AddClientCustomer("Mathias", "Dyberg", "Dyberg");
         return;
     }
 

@@ -48,8 +48,8 @@ public class ExecutionHandler : IExecutionHandler
                 });
             }
         });
-        var topic = TopicGenerator.TopicForClientBuyOrderApproved();
-        _messageBus.Subscribe<Order>(topic, Id, HandleBuyOrder);
+        var topicOrderApproved = TopicGenerator.TopicForClientBuyOrderApproved();
+        _messageBus.Subscribe<Order>(topicOrderApproved, Id, HandleBuyOrder);
 
         var topicHedgeResponse = TopicGenerator.TopicForHedgingOrderResponse();
         _messageBus.Subscribe<(TransactionData, string)>(topicHedgeResponse, Id, BookHedgedOrder);
@@ -115,6 +115,19 @@ public class ExecutionHandler : IExecutionHandler
 
     public void Stop()
     {
-        
+        var topicOrderApproved = TopicGenerator.TopicForClientBuyOrderApproved();
+        _messageBus.Unsubscribe(topicOrderApproved, Id);
+
+        var topicHedgeResponse = TopicGenerator.TopicForHedgingOrderResponse();
+        _messageBus.Unsubscribe(topicHedgeResponse, Id);
+
+        var topicInstruments = TopicGenerator.TopicForAllInstruments();
+        _messageBus.Unsubscribe(topicInstruments, Id);
+
+        foreach (var stock in _stockOptions)
+        {
+            var topic = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
+            _messageBus.Unsubscribe(topic, Id);
+        }
     }
 }

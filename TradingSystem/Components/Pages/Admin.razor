@@ -1,0 +1,65 @@
+﻿@page "/Admin"
+@using TradingSystem.Logic
+@using Console = System.Console
+@inject IDBHandler DbHandler
+@inject IBook Book
+@inject IRiskCalculator RiskCalculator
+@inject IMarketDataGateway MarketDataGateway
+@inject IMessageBus MessageBus
+@inject ToastService ToastService
+
+<link rel="stylesheet" href="Styles/ClientStyle.css">
+
+<h3>Admin Dashboard</h3>
+
+<div>
+    <div>
+        <div>
+            <h4 class="section-title">Reset Database</h4>
+            <button class="button" @onclick="resetDB">
+                <span>Reset</span>
+            </button>
+        </div>
+        <br />
+        <div>
+            <h4 class="section-title">Set Simulation Speed</h4>
+            <h6>As a reminder, each external broker has a 1/simulationSpeed chance of updating a price every half second</h6>
+            <input type="number" @bind="simSpeed" />
+            <button class="button" @onclick="setSimSpeed">
+                <span>Set Simulation Speed</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int simSpeed { get; set; }
+
+    private async void setSimSpeed()
+    {
+        if(simSpeed < 1)
+        {
+            await ToastService.Error("Error", "Could not set Simulation Speed - Input must be integer larger than 0", autoHide: true);
+        }else
+        {
+            MarketDataGateway.setSimSpeed(simSpeed);
+            await ToastService.Success("Success", $"Simulation Speed successfully set to {simSpeed}", autoHide: true);
+        }
+    }
+
+    private async void resetDB()
+    {
+        DbHandler.Stop();
+        Book.Stop();
+        RiskCalculator.Stop();
+
+        MessageBus.ClearDBPersistantMessages();
+        DbHandler.ResetDB();
+        
+        DbHandler.Start();
+        Book.Start();
+        RiskCalculator.Start();
+        await ToastService.Success("Success", "Database reset successfully", autoHide: true);
+    }
+
+}
