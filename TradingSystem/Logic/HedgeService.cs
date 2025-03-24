@@ -17,12 +17,20 @@ public class HedgeService(IObservable observable, INordea nordea, IJPMorgan JPMo
 
     public void Start()
     {
+        GetBrokerInventory();
+        SubscribeToHedgeRequests();
+    }
+
+    private void SubscribeToHedgeRequests()
+    {
+        var topic = TopicGenerator.TopicForHedgingOrderRequest();
+        observable.Subscribe<TransactionData>(topic, Id, HandleHedgeRequest);
+    }
+    private void GetBrokerInventory()
+    {
         brokerInventory.Add("Nordea", nordea.getStocks());
         brokerInventory.Add("JPMorgan", JPMorgan.getStocks());
         brokerInventory.Add("NASDAQ", NASDAQ.getStocks());
-
-        var topic = TopicGenerator.TopicForHedgingOrderRequest();
-        observable.Subscribe<TransactionData>(topic, Id, HandleHedgeRequest);
     }
 
     public void HandleHedgeRequest(TransactionData trans)

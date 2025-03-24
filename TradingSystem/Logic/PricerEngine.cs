@@ -33,6 +33,15 @@ public class PricerEngine : IPricerEngine
     public void Start()
     {
         _logger.PricerEngineStartUp();
+
+        SubscribeToMarketPriceUpdates();
+        PublishReferencePrices();
+
+        _logger.PricerEngineStarted();
+    }
+
+    private void SubscribeToMarketPriceUpdates()
+    {
         var stocks = _tradingOptions.Value.Stocks;
 
         foreach (var stock in stocks)
@@ -46,9 +55,11 @@ public class PricerEngine : IPricerEngine
             var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(newStock.InstrumentId);
             _observable.Subscribe<Stocks>(stockTopic, Id, UpdatePrice);
         }
+    }
+    private void PublishReferencePrices()
+    {
         var topic = TopicGenerator.TopicForAllInstruments();
         _observable.Publish(topic, _referencePrices);
-        _logger.PricerEngineStarted();
     }
 
     public void Stop()

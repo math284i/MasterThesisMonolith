@@ -49,8 +49,18 @@ public class DBHandler : IDBHandler
     public void Start()
     {
         //ResetDB();
+        SubscribeToLogin();
+        PublishAllClients();
+        SetupTargetPositions();
+    }
+
+    private void SubscribeToLogin()
+    {
         var topic = TopicGenerator.TopicForLoginRequest();
         _observable.Subscribe<LoginInfo>(topic, Id, CheckLogin);
+    }
+    private void PublishAllClients()
+    {
         var allClients = GetAllClients();
         foreach (var client in allClients)
         {
@@ -58,7 +68,9 @@ public class DBHandler : IDBHandler
             client.Holdings = GetClientHoldings(client.ClientId);
             _observable.Publish(topicClient, client);
         }
-        
+    }
+    private void SetupTargetPositions()
+    {
         var topicAllTargetPositions = TopicGenerator.TopicForAllTargetPositions();
         var allTargetPositions = GetTargetPositions();
         foreach (var topicTarget in allTargetPositions.Select(targetPosition => TopicGenerator.TopicForTargetPositionUpdate(targetPosition.InstrumentId)))
@@ -67,7 +79,7 @@ public class DBHandler : IDBHandler
         }
         _observable.Publish(topicAllTargetPositions, allTargetPositions);
     }
-
+    
     private void UpdateTargetPosition(TargetPosition newTarget)
     {
         var db = DeserializeDB();
@@ -228,7 +240,11 @@ public class DBHandler : IDBHandler
         {
             db.Holdings.Remove(currentHoldSeller);
             currentHoldSeller.Size -= trans.Size;
-            db.Holdings.Add(currentHoldSeller);
+
+            if(currentHoldSeller.Size > 0)
+            {
+                db.Holdings.Add(currentHoldSeller);
+            }
         }
         // var topicSeller = TopicGenerator.TopicForHoldingOfClient(trans.SellerId.ToString());
         // _messageBus.Publish(topicSeller, GetClientHoldings(trans.SellerId));
