@@ -26,7 +26,7 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
         SubscribeToInstruments();
         PublishInitialMarketPrice();
 
-        Task.Run(() => RunSimulation(_cts.Token)); // Run in a background task
+        Task.Run(() => RunSimulation(_cts.Token));
     }
 
     private void SubscribeToInstruments()
@@ -42,8 +42,7 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
         Dictionary<string, float> nordeaPrices = nordea.getPrices();
         Dictionary<string, float> JPMorganPrices = JPMorgan.getPrices();
         Dictionary<string, float> NASDAQPrices = NASDAQ.getPrices();
-
-        //Need a set of only instrumentIds, as price changes mean that looking up in the stockoptions set will not function
+        
         foreach (Stock stock in _stockOptions)
         {
             _instrumentIds.Add(stock.InstrumentId);
@@ -95,7 +94,6 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
         bool firstInLocker = true;
 
         //Each API has a 1/simSpeed chance of simulating a price change every half second.
-
         Task<Stock> funNordea() => Task.Run( () =>
         {
             return Nordea.simulatePriceChange(simSpeed, ref _simulationLock, ref token, ref firstInLocker);
@@ -110,17 +108,13 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
         {
             return NASDAQ.simulatePriceChange(simSpeed, ref _simulationLock, ref token, ref firstInLocker);
         });
-
-        // Start three tasks
+        
         Task<Stock>[] tasks = { funNordea(), funJPMorgan(), funNASDAQ() };
-
-        // Wait for the first task to complete
+        
         Task<Stock> firstCompleted = await Task.WhenAny(tasks);
 
-        // Cancel the remaining tasks
         cts.Cancel();
 
-        // Return the result of the first completed task
         return await firstCompleted;
     }
 

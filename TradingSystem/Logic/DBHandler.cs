@@ -12,9 +12,8 @@ public interface IDBHandler
     public void Start();
     public void Stop();
     public void AddClient(string name);
-    public void AddClientCustomer(string name, string username, string password); //All clients added are also customers
+    public void AddClientCustomer(string name, string username, string password);
     public void AddTransaction(TransactionData transaction);
-    //public void addHolding(Guid clientId, string instrumentId, int amount); //Probably not necessary
     public Tier GetClientTier(string name);
     public float GetClientBalance(string name);
     public Guid GetClientGuid(string name);
@@ -48,7 +47,6 @@ public class DBHandler : IDBHandler
 
     public void Start()
     {
-        ResetDB();
         SubscribeToLogin();
         PublishAllClients();
         SetupTargetPositions();
@@ -116,8 +114,8 @@ public class DBHandler : IDBHandler
         {
             ClientId = Guid.NewGuid(),
             Name = name,
-            Balance = 100.0f, //TODO: Figure out a good starting balance for new clients
-            Tier = Tier.Premium, //TODO: Figure out a good tier system
+            Balance = 100.0f,
+            Tier = Tier.Premium,
             Holdings = new List<HoldingData>(),
         };
 
@@ -146,8 +144,8 @@ public class DBHandler : IDBHandler
         {
             ClientId = ID,
             Name = name,
-            Balance = 100.0f, //TODO: Figure out a good starting balance for new clients
-            Tier = Tier.Regular, //TODO: Figure out a good tier system
+            Balance = 100.0f,
+            Tier = Tier.Regular,
             Holdings = new List<HoldingData>(),
         };
         db.Clients.Add(client);
@@ -160,38 +158,28 @@ public class DBHandler : IDBHandler
     {
         DatabaseData db = DeserializeDB();
 
-        TransactionData trans = new TransactionData
+        transaction.TransactionId = Guid.NewGuid();
+        transaction.Time = DateTime.Now;
+        db.Transactions.Add(transaction);
+        if(transaction.Succeeded)
         {
-            TransactionId = Guid.NewGuid(),
-            BuyerId = transaction.BuyerId,
-            SellerId = transaction.SellerId,
-            InstrumentId = transaction.InstrumentId,
-            Size = transaction.Size,
-            Price = transaction.Price,
-            Time = DateTime.Now,
-            Succeeded = transaction.Succeeded
-        };
-        db.Transactions.Add(trans);
-        if(trans.Succeeded)
-        {
-            db = UpdateHoldings(db, trans);
-            var buyer = db.Clients.Find(x => x.ClientId == trans.BuyerId);
+            db = UpdateHoldings(db, transaction);
+            var buyer = db.Clients.Find(x => x.ClientId == transaction.BuyerId);
             if(buyer != null)
             {
                 db.Clients.Remove(buyer);
-                buyer.Balance -= trans.Size * trans.Price;
+                buyer.Balance -= transaction.Size * (transaction.Price + transaction.SpreadPrice);
                 db.Clients.Add(buyer);
                 Serialize(db);
                 var topic = TopicGenerator.TopicForDBDataOfClient(buyer.ClientId.ToString());
                 buyer.Holdings = GetClientHoldings(buyer.ClientId);
-                Console.WriteLine($"Publishing buyer balance: {buyer.ClientId} {buyer.Balance}");
                 _observable.Publish(topic, buyer);
             }
-            var seller = db.Clients.Find(x => x.ClientId == trans.SellerId);
+            var seller = db.Clients.Find(x => x.ClientId == transaction.SellerId);
             if (seller != null)
             {
                 db.Clients.Remove(seller);
-                seller.Balance += trans.Size * trans.Price;
+                seller.Balance += transaction.Size * (transaction.Price + transaction.SpreadPrice);
                 db.Clients.Add(seller);
                 Serialize(db);
                 var topic = TopicGenerator.TopicForDBDataOfClient(seller.ClientId.ToString());
@@ -205,7 +193,6 @@ public class DBHandler : IDBHandler
 
     private DatabaseData UpdateHoldings(DatabaseData db, TransactionData trans)
     {
-        Console.WriteLine($"DBHandler updating for {trans.InstrumentId}");
         var currentHoldBuyer = db.Holdings.Find(x => x.ClientId == trans.BuyerId && x.InstrumentId == trans.InstrumentId);
         if(currentHoldBuyer == null)
         {
@@ -223,8 +210,6 @@ public class DBHandler : IDBHandler
             currentHoldBuyer.Size += trans.Size;
             db.Holdings.Add(currentHoldBuyer);
         }
-        // var topicBuyer = TopicGenerator.TopicForHoldingOfClient(trans.BuyerId.ToString());
-        // _messageBus.Publish(topicBuyer, GetClientHoldings(trans.BuyerId));
         var currentHoldSeller = db.Holdings.Find(x => x.ClientId == trans.SellerId && x.InstrumentId == trans.InstrumentId);
         if (currentHoldSeller == null)
         {
@@ -246,8 +231,6 @@ public class DBHandler : IDBHandler
                 db.Holdings.Add(currentHoldSeller);
             }
         }
-        // var topicSeller = TopicGenerator.TopicForHoldingOfClient(trans.SellerId.ToString());
-        // _messageBus.Publish(topicSeller, GetClientHoldings(trans.SellerId));
         return db;
     }
 
@@ -257,7 +240,7 @@ public class DBHandler : IDBHandler
         var client = db.Clients.Find(x => x.Name.Equals(name));
         if(client == null)
         {
-            return Tier.ClientNotFound; //TODO: Proper error handling
+            return Tier.ClientNotFound;
         }
         return client.Tier;
     }
@@ -268,7 +251,7 @@ public class DBHandler : IDBHandler
         var client = db.Clients.Find(x => x.Name.Equals(name));
         if (client == null)
         {
-            return -1.0f; //TODO: Proper error handling
+            return -1.0f;
         }
         return client.Balance;
     }
@@ -279,7 +262,7 @@ public class DBHandler : IDBHandler
         var client = db.Clients.Find(x => x.Name.Equals(name));
         if (client == null)
         {
-            return Guid.NewGuid(); //TODO: Proper error handling
+            return Guid.Empty;
         }
         return client.ClientId;
     }
@@ -290,7 +273,7 @@ public class DBHandler : IDBHandler
         var client = db.Clients.Find(x => x.Name.Equals(name));
         if (client == null)
         {
-            return new List<TransactionData>(); //TODO: Proper error handling
+            return new List<TransactionData>();
         }
         List<TransactionData> transBuyer = db.Transactions.FindAll(x => x.BuyerId == client.ClientId);
         List<TransactionData> transSeller = db.Transactions.FindAll(x => x.SellerId == client.ClientId);
@@ -425,7 +408,6 @@ public class DBHandler : IDBHandler
             });
         }
 
-        //TODO: Add initial holdings
         Serialize(db);
 
         AddClientCustomer("Anders", "KP", "KP");

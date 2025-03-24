@@ -74,7 +74,6 @@ public class PricerEngine : IPricerEngine
 
     private void UpdatePrice(Stock stock)
     {
-        //Reference price should be updated aswell.
         _logger.PricerEngineReceivedNewPrice(stock.InstrumentId, stock.Price);
         var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
         _observable.Publish(stockTopic, stock);

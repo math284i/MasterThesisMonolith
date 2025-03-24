@@ -68,10 +68,6 @@ public class Book : IBook
     public void HedgeOrder((TransactionData trans, string brokerName) response)
     {
         _logger.LogInformation("Hedge order called for {instrumentId}", response.trans.InstrumentId);
-        /*
-        var externalBrokerIds = _dbHandler.GetAllClients().FindAll(x => x.Tier == "external").Select(b => b.ClientId).ToList();
-        var brokerId = externalBrokerIds.Find(x => _dbHandler.GetClientHoldings(x).Exists(y => y.InstrumentId == transaction.InstrumentId));
-        */
         var danskeBankId = _dbHandler.GetClientGuid(DanskeBankClientName);
         var brokerId = _dbHandler.GetClientGuid(response.brokerName);
 
@@ -83,9 +79,10 @@ public class Book : IBook
             InstrumentId = response.trans.InstrumentId,
             Size = response.trans.Size,
             Price = response.trans.Price,
+            SpreadPrice = response.trans.SpreadPrice,
             Time = response.trans.Time,
             Succeeded = response.trans.Succeeded
-};
+        };
         var trans2 = new TransactionData
         {
             TransactionId = response.trans.TransactionId,
@@ -94,6 +91,7 @@ public class Book : IBook
             InstrumentId = response.trans.InstrumentId,
             Size = response.trans.Size,
             Price = response.trans.Price,
+            SpreadPrice = 0.0f,
             Time = response.trans.Time,
             Succeeded = response.trans.Succeeded
         };
@@ -107,9 +105,9 @@ public class Book : IBook
         }else
         {
             //Client is buying stock
-            trans1.SellerId = brokerId;
-            trans1.BuyerId = danskeBankId;
-            trans2.SellerId = danskeBankId;
+            trans1.SellerId = danskeBankId;
+            trans2.SellerId = brokerId;
+            trans2.BuyerId = danskeBankId;
         }
         _dbHandler.AddTransaction(trans1);
         _dbHandler.AddTransaction(trans2);

@@ -69,7 +69,6 @@ public class ExecutionHandler : IExecutionHandler
 
     private void HandleBuyOrder(Order order)
     {
-        Console.WriteLine($"Execution handler got order {order.Stock.InstrumentId}");
         var matchingStock = _stockOptions.SingleOrDefault(s => s.InstrumentId == order.Stock.InstrumentId);
         if (matchingStock == null) return;
         
@@ -85,7 +84,7 @@ public class ExecutionHandler : IExecutionHandler
         {
             // Buy
             transaction.BuyerId = order.ClientId;
-            transaction.SellerId = Guid.Empty; // TODO
+            transaction.SellerId = Guid.Empty;
         }
         else
         {
@@ -96,11 +95,8 @@ public class ExecutionHandler : IExecutionHandler
 
         if (matchingStock.Price == order.Stock.Price)
         {
-            // TODO Here check if we should book it our self or we should hedge it to the market
             _logger.LogInformation($"Letting {order.ClientId} buy order {order.Stock.InstrumentId} at price {order.Stock.Price} quantity {order.Stock.Size}");
 
-            // TODO if we send it to the market, wait for their acceptance before telling the client it was succeded.
-            // TODO if sent to the market, create 2 books.
             order.Status = OrderStatus.Success;
 
             transaction.Succeeded = true;
