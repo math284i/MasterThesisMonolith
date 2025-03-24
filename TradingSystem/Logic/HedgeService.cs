@@ -37,7 +37,7 @@ public class HedgeService(IObservable observable, INordea nordea, IJPMorgan JPMo
     {
         var brokerName = brokerInventory.FirstOrDefault(x => x.Value.Contains(trans.InstrumentId)).Key;
 
-        //Add ability for broker to reject hedge
+        // TODO Add ability for broker to reject hedge
         //For now we assume that all external brokers always want to buy/sell
         if(false)
         {

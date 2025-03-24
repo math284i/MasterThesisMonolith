@@ -126,8 +126,6 @@
     </div>
 </div>
 
-@* <Toasts class="p-3" AutoHide="true" Delay="4000" Placement="ToastsPlacement.BottomCenter" /> *@
-
 @code {
     private Dictionary<Guid, HashSet<Stocks>> stocks = new();
     private bool _isAuthenticated;
@@ -167,7 +165,6 @@
 
     private void UpdateSelectedStocks(ChangeEventArgs args, Stocks stock)
     {
-        Console.WriteLine($"Updating stock: {stock.InstrumentId} enabled: {(bool)args.Value}");
         var enabled = (bool)(args.Value ?? false);
         var info = new StreamInformation
         {
@@ -268,8 +265,6 @@
                 await ToastService.Error("Cancelled", $"Order for {order.Stock.Size} of stock {order.Stock.InstrumentId} was cancelled with error message: " + order.ErrorMesssage, autoHide: true);
                 break;
         }
-        //_tmpOrderstatus = order.Status.ToString();
-        //_tmpErrorMessage = order.ErrorMesssage;
     }
 
     private async void UpdateClientData(ClientData data)
