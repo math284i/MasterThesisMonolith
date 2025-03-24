@@ -27,14 +27,24 @@ public class Book : IBook
     
     public void Start()
     {
+        PublishClients();
+        SubscribeToBookings();
+        SubscribeToHedgings();
+    }
+    
+    private void PublishClients()
+    {
         var clients = _dbHandler.GetAllClients();
         var topic = TopicGenerator.TopicForAllClients();
-            
         _observable.Publish(topic, clients);
-
+    }
+    private void SubscribeToBookings()
+    {
         var topicBookOrder = TopicGenerator.TopicForBookingOrder();
         _observable.Subscribe<TransactionData>(topicBookOrder, Id, BookOrder);
-
+    }
+    private void SubscribeToHedgings()
+    {
         var topicHedgeOrder = TopicGenerator.TopicForHedgingOrder();
         _observable.Subscribe<(TransactionData, string)>(topicHedgeOrder, Id, HedgeOrder);
     }
