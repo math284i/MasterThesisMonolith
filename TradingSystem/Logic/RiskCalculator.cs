@@ -147,9 +147,22 @@ public class RiskCalculator : IRiskCalculator
         var danskeStock = danskeData.Holdings.Find(h => h.InstrumentId == order.Stock.InstrumentId);
         if (danskeStock == null) return true;
         var targetPosition = _targetPositions[order.Stock.InstrumentId];
+        var shouldWeHedge = targetPosition.Type switch
+        {
+            TargetType.FOK => ShouldWeHedgeFOK(order, targetPosition, danskeStock),
+            TargetType.IOC => true,
+            TargetType.GTC => true,
+            TargetType.GFD => true,
+            _ => throw new ArgumentOutOfRangeException()
+        };
+        return shouldWeHedge;
+    }
 
+    private bool ShouldWeHedgeFOK(Order order, TargetPosition targetPosition, HoldingData danskeStock)
+    {
         if (order.Side == OrderSide.RightSided)
         {
+            // TODO ask Nikodem about target type, and below code.
             // Buy
             if (targetPosition.Target >= danskeStock.Size) return true;
             return danskeStock.Size < order.Stock.Size;
