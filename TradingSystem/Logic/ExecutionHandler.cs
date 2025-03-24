@@ -13,20 +13,20 @@ public class ExecutionHandler : IExecutionHandler
 {
     private readonly ILogger<ExecutionHandler> _logger;
     private const string Id = "executionHandler";
-    private readonly IMessageBus _messageBus;
-    private HashSet<StockOptions> _stockOptions = new HashSet<StockOptions>();
-    private HashSet<StockOptions> _prices = new HashSet<StockOptions>();
-    public ExecutionHandler(ILogger<ExecutionHandler> logger, IMessageBus messageBus)
+    private readonly IObservable _observable;
+    private HashSet<Stocks> _stockOptions = new HashSet<Stocks>();
+    private HashSet<Stocks> _prices = new HashSet<Stocks>();
+    public ExecutionHandler(ILogger<ExecutionHandler> logger, IObservable observable)
     {
         _logger = logger;
-        _messageBus = messageBus;
+        _observable = observable;
     }
 
 
     public void Start()
     {
         var topicInstruments = TopicGenerator.TopicForAllInstruments();
-        _messageBus.Subscribe<HashSet<StockOptions>>(topicInstruments, Id, stocks =>
+        _observable.Subscribe<HashSet<Stocks>>(topicInstruments, Id, stocks =>
         {
             _stockOptions = stocks;
 
@@ -34,7 +34,7 @@ public class ExecutionHandler : IExecutionHandler
             {
                 var topic = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
 
-                _messageBus.Subscribe<StockOptions>(topic, Id, updatedStock =>
+                _observable.Subscribe<Stocks>(topic, Id, updatedStock =>
                 {
                     var matchingStock = _stockOptions.SingleOrDefault(s => s.InstrumentId == updatedStock.InstrumentId);
                     if (matchingStock != null)
@@ -49,10 +49,10 @@ public class ExecutionHandler : IExecutionHandler
             }
         });
         var topicOrderApproved = TopicGenerator.TopicForClientBuyOrderApproved();
-        _messageBus.Subscribe<Order>(topicOrderApproved, Id, HandleBuyOrder);
+        _observable.Subscribe<Order>(topicOrderApproved, Id, HandleBuyOrder);
 
         var topicHedgeResponse = TopicGenerator.TopicForHedgingOrderResponse();
-        _messageBus.Subscribe<(TransactionData, string)>(topicHedgeResponse, Id, BookHedgedOrder);
+        _observable.Subscribe<(TransactionData, string)>(topicHedgeResponse, Id, BookHedgedOrder);
     }
 
     private void HandleBuyOrder(Order order)
@@ -100,34 +100,34 @@ public class ExecutionHandler : IExecutionHandler
             {
                 topicBook = TopicGenerator.TopicForBookingOrder();
             }
-            _messageBus.Publish(topicBook, transaction, isTransient: true);
+            _observable.Publish(topicBook, transaction, isTransient: true);
 
             var topicClient = TopicGenerator.TopicForClientOrderEnded(order.ClientId.ToString());
-            _messageBus.Publish(topicClient, order, isTransient: true);
+            _observable.Publish(topicClient, order, isTransient: true);
         }
     }
 
     public void BookHedgedOrder((TransactionData trans, string brokerName) response)
     {
         var topic = TopicGenerator.TopicForHedgingOrder();
-        _messageBus.Publish(topic, response, isTransient: true);
+        _observable.Publish(topic, response, isTransient: true);
     }
 
     public void Stop()
     {
         var topicOrderApproved = TopicGenerator.TopicForClientBuyOrderApproved();
-        _messageBus.Unsubscribe(topicOrderApproved, Id);
+        _observable.Unsubscribe(topicOrderApproved, Id);
 
         var topicHedgeResponse = TopicGenerator.TopicForHedgingOrderResponse();
-        _messageBus.Unsubscribe(topicHedgeResponse, Id);
+        _observable.Unsubscribe(topicHedgeResponse, Id);
 
         var topicInstruments = TopicGenerator.TopicForAllInstruments();
-        _messageBus.Unsubscribe(topicInstruments, Id);
+        _observable.Unsubscribe(topicInstruments, Id);
 
         foreach (var stock in _stockOptions)
         {
             var topic = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
-            _messageBus.Unsubscribe(topic, Id);
+            _observable.Unsubscribe(topic, Id);
         }
     }
 }

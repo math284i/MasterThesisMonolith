@@ -6,7 +6,7 @@ namespace TradingSystem.Logic.ExternalBrokers
 {
     public interface INordea
     {
-        public StockOptions simulatePriceChange(int simSpeed, ref Lock simulationLock, ref CancellationToken token, ref bool first);
+        public Stocks simulatePriceChange(int simSpeed, ref Lock simulationLock, ref CancellationToken token, ref bool first);
         public Dictionary<string, float> getPrices();
         public List<string> getStocks();
     }
@@ -38,13 +38,13 @@ namespace TradingSystem.Logic.ExternalBrokers
             return myStocks;
         }
 
-        public StockOptions simulatePriceChange(int simSpeed, ref Lock simulationLock, ref CancellationToken token, ref bool first)
+        public Stocks simulatePriceChange(int simSpeed, ref Lock simulationLock, ref CancellationToken token, ref bool first)
         {
             while (rand.Next(0,simSpeed) > 0)
             {
                 if (token.IsCancellationRequested)
                 {
-                    return new StockOptions();
+                    return new Stocks();
                 }
                 Thread.Sleep(500);
             }
@@ -58,7 +58,7 @@ namespace TradingSystem.Logic.ExternalBrokers
                     var price = (rand.Next(0, 2) > 0) ? myPrices[updateKey] - 0.1f : myPrices[updateKey] + 0.1f;
                     _logger.NordeaApiUpdatePrice(updateKey, myPrices[updateKey], price);
                     myPrices[updateKey] = price;
-                    var updatedStock = new StockOptions
+                    var updatedStock = new Stocks
                     {
                         InstrumentId = updateKey,
                         Price = price
@@ -66,7 +66,7 @@ namespace TradingSystem.Logic.ExternalBrokers
                     return updatedStock;
                 }else
                 {
-                    return new StockOptions();
+                    return new Stocks();
                 }
             }
         }

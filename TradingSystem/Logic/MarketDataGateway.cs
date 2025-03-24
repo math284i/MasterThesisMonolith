@@ -12,9 +12,9 @@ public interface IMarketDataGateway
 }
 
 
-public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ) : IMarketDataGateway
+public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ) : IMarketDataGateway
 {
-    private HashSet<StockOptions> _stockOptions = new HashSet<StockOptions>();
+    private HashSet<Stocks> _stockOptions = new HashSet<Stocks>();
     private HashSet<string> _instrumentIds = new HashSet<string>();
     private readonly CancellationTokenSource _cts = new();
     private Lock _simulationLock = new();
@@ -24,7 +24,7 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
     public void Start()
     {
         var topic = TopicGenerator.TopicForAllInstruments();
-        messageBus.Subscribe<HashSet<StockOptions>>(topic, Id, stocks =>
+        observable.Subscribe<HashSet<Stocks>>(topic, Id, stocks =>
         {
             _stockOptions = stocks;
         });
@@ -34,7 +34,7 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
         Dictionary<string, float> NASDAQPrices = NASDAQ.getPrices();
 
         //Need a set of only instrumentIds, as price changes mean that looking up in the stockoptions set will not function
-        foreach (StockOptions stock in _stockOptions)
+        foreach (Stocks stock in _stockOptions)
         {
             _instrumentIds.Add(stock.InstrumentId);
 
@@ -59,7 +59,7 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
 
             stock.Price = minMarketPrice;
             var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
-            messageBus.Publish(stockTopic, stock);
+            observable.Publish(stockTopic, stock);
         }
 
         Task.Run(() => RunLoop(_cts.Token)); // Run in a background task
@@ -69,16 +69,16 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
     {
         while (!token.IsCancellationRequested)
         {
-            StockOptions result = await marketCheck(nordea, JPMorgan, NASDAQ);
+            Stocks result = await marketCheck(nordea, JPMorgan, NASDAQ);
             if(_instrumentIds.Contains(result.InstrumentId))
             {
                 var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(result.InstrumentId);
-                messageBus.Publish(stockTopic, result);
+                observable.Publish(stockTopic, result);
             }
         }
     }
 
-    private async Task<StockOptions> marketCheck(INordea Nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ)
+    private async Task<Stocks> marketCheck(INordea Nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ)
     {
         using var cts = new CancellationTokenSource();
         var token = cts.Token;
@@ -87,26 +87,26 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
 
         //Each API has a 1/simSpeed chance of simulating a price change every half second.
 
-        Task<StockOptions> funNordea() => Task.Run( () =>
+        Task<Stocks> funNordea() => Task.Run( () =>
         {
             return Nordea.simulatePriceChange(simSpeed, ref _simulationLock, ref token, ref firstInLocker);
         });
 
-        Task<StockOptions> funJPMorgan() => Task.Run(() =>
+        Task<Stocks> funJPMorgan() => Task.Run(() =>
         {
             return JPMorgan.simulatePriceChange(simSpeed, ref _simulationLock, ref token, ref firstInLocker);
         });
 
-        Task<StockOptions> funNASDAQ() => Task.Run(() =>
+        Task<Stocks> funNASDAQ() => Task.Run(() =>
         {
             return NASDAQ.simulatePriceChange(simSpeed, ref _simulationLock, ref token, ref firstInLocker);
         });
 
         // Start three tasks
-        Task<StockOptions>[] tasks = { funNordea(), funJPMorgan(), funNASDAQ() };
+        Task<Stocks>[] tasks = { funNordea(), funJPMorgan(), funNASDAQ() };
 
         // Wait for the first task to complete
-        Task<StockOptions> firstCompleted = await Task.WhenAny(tasks);
+        Task<Stocks> firstCompleted = await Task.WhenAny(tasks);
 
         // Cancel the remaining tasks
         cts.Cancel();
@@ -119,7 +119,7 @@ public class MarketDataGateway(IMessageBus messageBus, INordea nordea, IJPMorgan
     {
         _cts.Cancel();
         var topic = TopicGenerator.TopicForAllInstruments();
-        messageBus.Unsubscribe(topic, Id);
+        observable.Unsubscribe(topic, Id);
 
         _stockOptions = new();
         _instrumentIds = new();

@@ -1,6 +1,6 @@
 namespace TradingSystem.Data;
 
-public class TradingOptions
+public class InstrumentsOptions
 {
     public const string SectionName = "TradingOptions";
     public HashSet<string> Stocks { get; set; } = [];

@@ -6,30 +6,30 @@ namespace TradingSystem.Logic;
 
 public interface IClient
 {
-    public HashSet<StockOptions> GetStockOptions<T>(Action<T> client);
+    public HashSet<Stocks> GetStockOptions<T>(Action<T> client);
     public void HandleOrder(Order order, Action<Order> callback);
 
     public void Login(string username, string password, Action<LoginInfo> callbackLogin,
         Action<ClientData> callbackClientData);
 
     public void Logout(Action<bool> callback);
-    void StreamPrice(StreamInformation info, Action<StockOptions> updatePrice);
+    void StreamPrice(StreamInformation info, Action<Stocks> updatePrice);
 }
 
 public class ClientAPI : IClient
 {
-    private HashSet<StockOptions> _tradingOptions;
+    private HashSet<Stocks> _tradingOptions;
     private readonly List<Delegate> _clients;
     private const string Id = "clientAPI";
-    private readonly IMessageBus _messageBus;
+    private readonly IObservable _observable;
 
-    public ClientAPI(IMessageBus messageBus)
+    public ClientAPI(IObservable observable)
     {
-        _tradingOptions = new HashSet<StockOptions>();
+        _tradingOptions = new HashSet<Stocks>();
         _clients = new List<Delegate>();
-        _messageBus = messageBus;
+        _observable = observable;
         var topic = TopicGenerator.TopicForAllInstruments();
-        _messageBus.Subscribe<HashSet<StockOptions>>(topic, Id, stockOptions =>
+        _observable.Subscribe<HashSet<Stocks>>(topic, Id, stockOptions =>
         {
             Console.WriteLine("ClientAPI found messages" + stockOptions);
             _tradingOptions = stockOptions;
@@ -40,22 +40,22 @@ public class ClientAPI : IClient
         });
     }
 
-    public HashSet<StockOptions> GetStockOptions<T>(Action<T> client)
+    public HashSet<Stocks> GetStockOptions<T>(Action<T> client)
     {
         _clients.Add(client);
         return _tradingOptions;
     }
 
-    public void StreamPrice(StreamInformation info, Action<StockOptions> updatePrice)
+    public void StreamPrice(StreamInformation info, Action<Stocks> updatePrice)
     {
         var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(info.InstrumentId);
         if (info.EnableLivePrices)
         {
-            _messageBus.Subscribe(stockTopic, info.ClientId.ToString(), updatePrice);
+            _observable.Subscribe(stockTopic, info.ClientId.ToString(), updatePrice);
         }
         else
         {
-            _messageBus.Unsubscribe(stockTopic, info.ClientId.ToString());
+            _observable.Unsubscribe(stockTopic, info.ClientId.ToString());
         }
     }
 
@@ -64,9 +64,9 @@ public class ClientAPI : IClient
         var topicToPublish = TopicGenerator.TopicForClientBuyOrder();
         var topicToSubscribe = TopicGenerator.TopicForClientOrderEnded(order.ClientId.ToString());
         
-        _messageBus.Subscribe(topicToSubscribe, Id, callback);
+        _observable.Subscribe(topicToSubscribe, Id, callback);
         
-        _messageBus.Publish(topicToPublish, order, isTransient: true);
+        _observable.Publish(topicToPublish, order, isTransient: true);
     }
 
     public void Login(string username, string password, Action<LoginInfo> callbackLogin, Action<ClientData> callbackClientData)
@@ -78,16 +78,16 @@ public class ClientAPI : IClient
             Username = username,
             Password = password
         };
-        _messageBus.Subscribe<LoginInfo>(responseTopic, Id, info =>
+        _observable.Subscribe<LoginInfo>(responseTopic, Id, info =>
         {
             if (info.IsAuthenticated)
             {
                 var topic = TopicGenerator.TopicForDBDataOfClient(info.ClientId.ToString());
-                _messageBus.Subscribe(topic, Id, callbackClientData);
+                _observable.Subscribe(topic, Id, callbackClientData);
             }
             callbackLogin?.Invoke(info);
         });
-        _messageBus.Publish(requestTopic, info, isTransient: true);
+        _observable.Publish(requestTopic, info, isTransient: true);
     }
     
 

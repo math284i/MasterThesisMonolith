@@ -7,5 +7,6 @@
         public List<HoldingData> Holdings { get; set; }
         public List<TransactionData> Transactions { get; set; }
         public List<SaltData> Salts { get; set; }
+        public List<TargetPosition> TargetPositions { get; set; }
     }
 }

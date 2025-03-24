@@ -74,5 +74,15 @@ public class TopicGenerator
     {
         return "dbDataOfClient" + clientId;
     }
+
+    public static string TopicForAllTargetPositions()
+    {
+        return "allTargetPositions";
+    }
+
+    public static string TopicForTargetPositionUpdate(string instrumentId)
+    {
+        return "targetPositionUpdate" + instrumentId;
+    }
     
 }

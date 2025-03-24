@@ -14,12 +14,12 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection SetupExternalData(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<BrokerStocks>(configuration.GetSection(BrokerStocks.SectionName));
-        return services.Configure<TradingOptions>(configuration.GetSection(TradingOptions.SectionName));
+        return services.Configure<InstrumentsOptions>(configuration.GetSection(InstrumentsOptions.SectionName));
     }
 
     public static IServiceCollection SetupTradingSystem(this IServiceCollection services)
     {
-        services.AddSingleton<IMessageBus, MessageBus>();
+        services.AddSingleton<IObservable, Observable>();
         services.AddSingleton<IDBHandler, DBHandler>();
         services.AddSingleton<IBook, Book>();
         services.AddSingleton<IRiskCalculator, RiskCalculator>();
