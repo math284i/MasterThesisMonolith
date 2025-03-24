@@ -3,50 +3,56 @@
 @using TradingSystem.Data
 @inject IDBHandler DbHandler
 
-<h3>Clients and Holdings</h3>
+<link rel="stylesheet" href="Styles/DBStyle.css">
 
-@if (clients == null)
-{
-    <p>Loading...</p>
-}
-else
-{
-    <table class="clients-table">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Balance</th>
-                <th>Tier</th>
-                <th>Holdings</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var client in clients)
-            {
-                <tr>
-                    <td>@client.Name</td>
-                    <td>@client.Balance.ToString("C")</td>
-                    <td>@client.Tier</td>
-                    <td>
-                        @if (holdings.TryGetValue(client.ClientId, out var clientHoldings) && clientHoldings.Any())
-                        {
-                            <ul class="holdings-list">
-                                @foreach (var holding in clientHoldings)
+<div class="container">
+    <h3 class="page-title">Clients and Holdings</h3>
+
+    @if (clients == null)
+    {
+        <p class="loading-text">Loading...</p>
+    }
+    else
+    {
+        <div class="table-container">
+            <table class="clients-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Balance</th>
+                        <th>Tier</th>
+                        <th>Holdings</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var client in clients)
+                    {
+                        <tr>
+                            <td>@client.Name</td>
+                            <td>@client.Balance.ToString("C")</td>
+                            <td>@client.Tier</td>
+                            <td>
+                                @if (holdings.TryGetValue(client.ClientId, out var clientHoldings) && clientHoldings.Any())
                                 {
-                                    <li>@holding.InstrumentId: @holding.Size</li>
+                                    <ul class="holdings-list">
+                                        @foreach (var holding in clientHoldings)
+                                        {
+                                            <li>@holding.InstrumentId: @holding.Size</li>
+                                        }
+                                    </ul>
                                 }
-                            </ul>
-                        }
-                        else
-                        {
-                            <p class="no-holdings">No holdings</p>
-                        }
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
+                                else
+                                {
+                                    <p class="no-holdings">No holdings</p>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
 
 @code {
     private List<ClientData> clients;

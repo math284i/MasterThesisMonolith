@@ -118,18 +118,6 @@
                     <p class="no-holdings">No holdings available.</p>
                 }
             </div>
-
-            @if (_isDevelopment)
-            {
-                //<h5>@_tmpOrderstatus</h5>
-                //<h5>@_tmpErrorMessage</h5>
-                <h3>Put new price on bus:</h3>
-                <input class="input-field" @bind="_developmentInstrumentId" />
-                <input class="input-field" @bind="_developmentPrice" />
-                <button class="btn btn-warning simulate-btn shadow-sm" @onclick="SimulateNewPrice">
-                    <i class="bi bi-graph-up"></i> Simulate Price
-                </button>
-            }
             <button class="btn btn-danger logout-btn shadow-sm" @onclick="LogOut">
                 <i class="bi bi-box-arrow-right"></i> Log Out
             </button>
@@ -142,15 +130,10 @@
 @code {
     private Dictionary<Guid, HashSet<Stocks>> stocks = new();
     private bool _isAuthenticated;
-    private bool _isDevelopment = true;
-    private string _developmentInstrumentId = "";
-    private float _developmentPrice;
     private Guid _clientId;
     private string _clientName = "";
     private string _clientUsername = "";
     private string _clientPassword = "";
-    private string _tmpOrderstatus = "";
-    private string _tmpErrorMessage = "";
     private readonly Dictionary<Guid, List<Stocks>> _selectedStocksPerClient = new();
     private List<HoldingData> _holdings = new();
     private float _balance = 0.0f;
@@ -294,19 +277,6 @@
         _holdings = data.Holdings;
         _balance = data.Balance;
         await InvokeAsync(StateHasChanged);
-    }
-    
-    private async void SimulateNewPrice()
-    {
-        var stock = new Stocks
-        {
-            InstrumentId = _developmentInstrumentId,
-            Price = _developmentPrice
-        };
-        var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
-        Observable.Publish(stockTopic, stock);
- 
-        await ToastService.Success("Success", "New price successfully put on the bus", autoHide: true);
     }
 
     private void LogOut()
