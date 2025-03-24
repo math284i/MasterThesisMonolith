@@ -1,49 +1,74 @@
 ﻿@page "/Admin"
+@using TradingSystem.Data
 @using TradingSystem.Logic
 @using Console = System.Console
 @inject IDBHandler DbHandler
 @inject IBook Book
 @inject IRiskCalculator RiskCalculator
 @inject IMarketDataGateway MarketDataGateway
-@inject IObservable MessageBus
+@inject IObservable Observable
 @inject ToastService ToastService
 
-<link rel="stylesheet" href="Styles/ClientStyle.css">
+<link rel="stylesheet" href="Styles/AdminStyle.css">
 
-<h3>Admin Dashboard</h3>
+<div class="container">
+    <h3>Admin Dashboard</h3>
 
-<div>
-    <div>
-        <div>
-            <h4 class="section-title">Reset Database</h4>
-            <button class="button" @onclick="resetDB">
-                <span>Reset</span>
-            </button>
-        </div>
-        <br />
-        <div>
-            <h4 class="section-title">Set Simulation Speed</h4>
-            <h6>As a reminder, each external broker has a 1/simulationSpeed chance of updating a price every half second</h6>
-            <input type="number" @bind="simSpeed" />
-            <button class="button" @onclick="setSimSpeed">
-                <span>Set Simulation Speed</span>
-            </button>
-        </div>
+    <!-- Reset Database Section -->
+    <div class="section">
+        <h4 class="section-title">Reset Database</h4>
+        <button class="button button-danger" @onclick="resetDB">
+            <span>Reset</span>
+        </button>
+    </div>
+
+    <!-- Set Simulation Speed -->
+    <div class="section">
+        <h4 class="section-title">Set Simulation Speed</h4>
+        <p>Each external broker has a 1/simulationSpeed chance of updating a price every half second.</p>
+        <input type="number" class="input-field" @bind="simSpeed" />
+        <button class="button" @onclick="setSimSpeed">
+            <span>Set Simulation Speed</span>
+        </button>
+    </div>
+
+    <!-- Simulate New Price -->
+    <div class="section">
+        <h4 class="section-title">Put new price on bus</h4>
+        <input type="text" class="input-field" placeholder="Instrument ID" @bind="_developmentInstrumentId" />
+        <input type="number" class="input-field" placeholder="Price" @bind="_developmentPrice" />
+        <button class="btn btn-warning shadow-sm" @onclick="SimulateNewPrice">
+            <i class="bi bi-graph-up"></i> Simulate Price
+        </button>
+    </div>
+
+    <!-- Update Target Position -->
+    <div class="section">
+        <h4 class="section-title">Put new target position on bus</h4>
+        <input type="text" class="input-field" placeholder="Instrument ID" @bind="_developmentInstrumentId" />
+        <input type="number" class="input-field" placeholder="Target Position" @bind="_developmentTarget" />
+        <button class="btn btn-warning shadow-sm" @onclick="UpdateTargetPosition">
+            <i class="bi bi-graph-up"></i> New Target Position
+        </button>
     </div>
 </div>
 
 @code {
     private int simSpeed { get; set; }
+    private string _developmentInstrumentId = "";
+    private float _developmentPrice;
+    private int _developmentTarget = 0;
 
     private async void setSimSpeed()
     {
-        if(simSpeed < 1)
+        if (simSpeed < 1)
         {
-            await ToastService.Error("Error", "Could not set Simulation Speed - Input must be integer larger than 0", autoHide: true);
-        }else
+            await ToastService.Error("Error", "Simulation Speed must be an integer larger than 0", autoHide: true);
+        }
+        else
         {
             MarketDataGateway.setSimSpeed(simSpeed);
-            await ToastService.Success("Success", $"Simulation Speed successfully set to {simSpeed}", autoHide: true);
+            await ToastService.Success("Success", $"Simulation Speed set to {simSpeed}", autoHide: true);
         }
     }
 
@@ -53,13 +78,39 @@
         Book.Stop();
         RiskCalculator.Stop();
 
-        MessageBus.ClearDBPersistantMessages();
+        Observable.ClearDBPersistantMessages();
         DbHandler.ResetDB();
-        
+
         DbHandler.Start();
         Book.Start();
         RiskCalculator.Start();
         await ToastService.Success("Success", "Database reset successfully", autoHide: true);
     }
 
+    private async void SimulateNewPrice()
+    {
+        var stock = new Stocks
+        {
+            InstrumentId = _developmentInstrumentId,
+            Price = _developmentPrice
+        };
+        var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
+        Observable.Publish(stockTopic, stock);
+
+        await ToastService.Success("Success", "New price added to bus", autoHide: true);
+    }
+
+    private async void UpdateTargetPosition()
+    {
+        var newTarget = new TargetPosition
+        {
+            InstrumentId = _developmentInstrumentId,
+            Target = _developmentTarget
+        };
+
+        var topic = TopicGenerator.TopicForTargetPositionUpdate(newTarget.InstrumentId);
+        Observable.Publish(topic, newTarget);
+
+        await ToastService.Success("Success", "New target position added to bus", autoHide: true);
+    }
 }

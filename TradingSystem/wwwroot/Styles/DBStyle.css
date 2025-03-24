@@ -1,0 +1,88 @@
+/* General page container */
+.container {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Page title */
+.page-title {
+    font-size: 24px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+/* Loading text */
+.loading-text {
+    text-align: center;
+    font-size: 18px;
+    color: #888;
+    margin-top: 20px;
+}
+
+/* Table container for responsiveness */
+.table-container {
+    overflow-x: auto;
+}
+
+/* Table styling */
+.clients-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Table headers */
+.clients-table th {
+    background: #007bff;
+    color: white;
+    padding: 12px;
+    text-align: left;
+}
+
+/* Table rows */
+.clients-table td {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+/* Alternate row coloring */
+.clients-table tbody tr:nth-child(even) {
+    background: #f2f2f2;
+}
+
+/* Hover effect */
+.clients-table tbody tr:hover {
+    background: #e9ecef;
+}
+
+/* Holdings list styling */
+.holdings-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.holdings-list li {
+    background: #17a2b8;
+    color: white;
+    padding: 5px 10px;
+    margin: 4px 0;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* No holdings text */
+.no-holdings {
+    color: #dc3545;
+    font-weight: bold;
+    font-size: 14px;
+}
