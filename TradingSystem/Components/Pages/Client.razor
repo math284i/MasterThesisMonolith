@@ -90,33 +90,34 @@
                         }
                     </div>
                 </div>
-            </div>
+                <div class="holdings-container">
+                    <div class="holdings-section">
+                        <h4 class="section-title">Your Holdings</h4>
 
-            <div class="holdings-section">
-                <h4 class="section-title">Your Holdings</h4>
-
-                @if (_holdings.Any())
-                {
-                    <div class="holdings-list">
-                        @foreach (var holding in _holdings.Where(x => x.Size > 0).OrderBy(o => o.InstrumentId).ToList())
+                        @if (_holdings.Any())
                         {
-                            <div class="holding-item" key="@holding.InstrumentId">
-                                <span class="stock-name">@holding.InstrumentId</span>
-                                <span class="stock-amount">Amount: @holding.Size</span>
+                            <div class="holdings-list">
+                                @foreach (var holding in _holdings.Where(x => x.Size > 0).OrderBy(o => o.InstrumentId).ToList())
+                                {
+                                    <div class="holding-item" key="@holding.InstrumentId">
+                                        <span class="stock-name">@holding.InstrumentId</span>
+                                        <span class="stock-amount">Amount: @holding.Size</span>
 
-                                <input type="number" class="quantity-input" min="1" @bind="holding.SellSize"/>
+                                        <input type="number" class="quantity-input" min="1" @bind="holding.SellSize" />
 
-                                <button class="sell-btn" @onclick="() => SellStock(holding, holding.SellSize)">
-                                    Sell
-                                </button>
+                                        <button class="sell-btn" @onclick="() => SellStock(holding, holding.SellSize)">
+                                            Sell
+                                        </button>
+                                    </div>
+                                }
                             </div>
                         }
+                        else
+                        {
+                            <p class="no-holdings">No holdings available.</p>
+                        }
                     </div>
-                }
-                else
-                {
-                    <p class="no-holdings">No holdings available.</p>
-                }
+                </div>
             </div>
             <button class="btn btn-danger logout-btn shadow-sm" @onclick="LogOut">
                 <i class="bi bi-box-arrow-right"></i> Log Out

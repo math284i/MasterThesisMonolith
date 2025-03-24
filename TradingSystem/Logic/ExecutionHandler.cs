@@ -25,6 +25,13 @@ public class ExecutionHandler : IExecutionHandler
 
     public void Start()
     {
+        SetupClientStockPrices();
+        SubscribeToBuyOrderApproved();
+        SubscribeToHedgeResponse();
+    }
+
+    private void SetupClientStockPrices()
+    {
         var topicInstruments = TopicGenerator.TopicForAllInstruments();
         _observable.Subscribe<HashSet<Stocks>>(topicInstruments, Id, stocks =>
         {
@@ -48,9 +55,14 @@ public class ExecutionHandler : IExecutionHandler
                 });
             }
         });
+    }
+    private void SubscribeToBuyOrderApproved()
+    {
         var topicOrderApproved = TopicGenerator.TopicForClientBuyOrderApproved();
         _observable.Subscribe<Order>(topicOrderApproved, Id, HandleBuyOrder);
-
+    }
+    private void SubscribeToHedgeResponse()
+    {
         var topicHedgeResponse = TopicGenerator.TopicForHedgingOrderResponse();
         _observable.Subscribe<(TransactionData, string)>(topicHedgeResponse, Id, BookHedgedOrder);
     }

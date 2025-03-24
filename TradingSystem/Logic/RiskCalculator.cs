@@ -30,6 +30,15 @@ public class RiskCalculator : IRiskCalculator
     
     public void Start()
     {
+        SubscribeToAllClients();
+
+        SubscribeToAllTargets();
+
+        SubscribeToBuyOrders();
+    }
+
+    private void SubscribeToAllClients()
+    {
         var topicForClients = TopicGenerator.TopicForAllClients();
 
         _observable.Subscribe<List<ClientData>>(topicForClients, Id, clients =>
@@ -45,7 +54,9 @@ public class RiskCalculator : IRiskCalculator
                 });
             }
         });
-
+    }
+    private void SubscribeToAllTargets()
+    {
         var topicAllTargets = TopicGenerator.TopicForAllTargetPositions();
         _observable.Subscribe<List<TargetPosition>>(topicAllTargets, Id, targets =>
         {
@@ -60,9 +71,9 @@ public class RiskCalculator : IRiskCalculator
                 });
             }
         });
-        
-        // TODO retrieve all clients currently in book, so we can start to calculate their risk already
-        // TODO also retrieve their book to keep in cache, so that clientAPI can get it straight from here. 
+    }
+    private void SubscribeToBuyOrders()
+    {
         var topic = TopicGenerator.TopicForClientBuyOrder();
         _observable.Subscribe<Order>(topic, Id, CheckOrder);
     }

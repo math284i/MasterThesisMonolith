@@ -23,12 +23,22 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
 
     public void Start()
     {
+        SubscribeToInstruments();
+        PublishInitialMarketPrice();
+
+        Task.Run(() => RunSimulation(_cts.Token)); // Run in a background task
+    }
+
+    private void SubscribeToInstruments()
+    {
         var topic = TopicGenerator.TopicForAllInstruments();
         observable.Subscribe<HashSet<Stocks>>(topic, Id, stocks =>
         {
             _stockOptions = stocks;
         });
-
+    }
+    private void PublishInitialMarketPrice()
+    {
         Dictionary<string, float> nordeaPrices = nordea.getPrices();
         Dictionary<string, float> JPMorganPrices = JPMorgan.getPrices();
         Dictionary<string, float> NASDAQPrices = NASDAQ.getPrices();
@@ -38,9 +48,9 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
         {
             _instrumentIds.Add(stock.InstrumentId);
 
-            //Publish initial prices of stocks to bus
+            //Find minimal price of instrument on the market.
             var minMarketPrice = float.MaxValue;
-            if(nordeaPrices.ContainsKey(stock.InstrumentId) && nordeaPrices[stock.InstrumentId] < minMarketPrice)
+            if (nordeaPrices.ContainsKey(stock.InstrumentId) && nordeaPrices[stock.InstrumentId] < minMarketPrice)
             {
                 minMarketPrice = nordeaPrices[stock.InstrumentId];
             }
@@ -54,6 +64,7 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
             }
             else
             {
+                //Basecase - No price found, so none published
                 minMarketPrice = 0.0f;
             }
 
@@ -61,11 +72,9 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
             var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
             observable.Publish(stockTopic, stock);
         }
-
-        Task.Run(() => RunLoop(_cts.Token)); // Run in a background task
     }
 
-    private async Task RunLoop(CancellationToken token)
+    private async Task RunSimulation(CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
