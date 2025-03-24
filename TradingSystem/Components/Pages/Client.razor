@@ -37,7 +37,7 @@
         else
         {
             <div class="content">
-                <h3>Logged in as <span class="highlight">@_clientUsername</span></h3>
+                <h3>Logged in as <span class="highlight">@_clientName</span></h3>
                 <h5>Balance @_balance.ToString("C")</h5>
                 <div class="stocks-container">
                     <!-- Stock Selection -->
@@ -98,7 +98,7 @@
                 @if (_holdings.Any())
                 {
                     <div class="holdings-list">
-                        @foreach (var holding in _holdings)
+                        @foreach (var holding in _holdings.Where(x => x.Size > 0).OrderBy(o => o.InstrumentId).ToList())
                         {
                             <div class="holding-item" key="@holding.InstrumentId">
                                 <span class="stock-name">@holding.InstrumentId</span>
@@ -130,9 +130,9 @@
                     <i class="bi bi-graph-up"></i> Simulate Price
                 </button>
             }
-                <button class="btn btn-danger logout-btn shadow-sm" @onclick="LogOut">
-                    <i class="bi bi-box-arrow-right"></i> Log Out
-                </button>
+            <button class="btn btn-danger logout-btn shadow-sm" @onclick="LogOut">
+                <i class="bi bi-box-arrow-right"></i> Log Out
+            </button>
         }
     </div>
 </div>
@@ -146,6 +146,7 @@
     private string _developmentInstrumentId = "";
     private float _developmentPrice;
     private Guid _clientId;
+    private string _clientName = "";
     private string _clientUsername = "";
     private string _clientPassword = "";
     private string _tmpOrderstatus = "";
@@ -289,6 +290,7 @@
 
     private async void UpdateClientData(ClientData data)
     {
+        _clientName = data.Name;
         _holdings = data.Holdings;
         _balance = data.Balance;
         await InvokeAsync(StateHasChanged);
