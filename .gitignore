@@ -14,3 +14,4 @@ obj
 bin
 /TradingSystem/TradingSystem.csproj.user
 /TradingSystem/Data/QuoteUnquoteDB.json
+/TradingSystem/Data/QuoteUnquoteDB.json
