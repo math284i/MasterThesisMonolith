@@ -31,7 +31,6 @@ public class ClientAPI : IClient
         var topic = TopicGenerator.TopicForAllInstruments();
         _observable.Subscribe<HashSet<Stocks>>(topic, Id, stockOptions =>
         {
-            Console.WriteLine("ClientAPI found messages" + stockOptions);
             _tradingOptions = stockOptions;
             foreach (var client in _clients)
             {

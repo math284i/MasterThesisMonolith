@@ -66,7 +66,6 @@ public class RiskCalculator : IRiskCalculator
                 var topicForTarget = TopicGenerator.TopicForTargetPositionUpdate(target.InstrumentId);
                 _observable.Subscribe<TargetPosition>(topicForTarget, Id, targetPosition =>
                 {
-                    Console.WriteLine($"Got target position {targetPosition}");
                     _targetPositions.AddOrUpdate(targetPosition.InstrumentId, targetPosition, (key, oldValue) => targetPosition);
                 });
             }
@@ -94,7 +93,6 @@ public class RiskCalculator : IRiskCalculator
         {
             // Buy
             float price = order.Stock.Price * order.Stock.Size;
-            Console.WriteLine($"Buying for {price} balance is: {clientData.Balance}");
             if (clientData.Balance >= price)
             {
                 _logger.LogInformation("RiskCalculator accepting order");
@@ -114,7 +112,6 @@ public class RiskCalculator : IRiskCalculator
         {
             // Sell
             var holding = _clientDatas[order.ClientId].Holdings.Find(h => h.InstrumentId == order.Stock.InstrumentId);
-            Console.WriteLine($"Riskcalculator holding: {holding.ClientId} {holding.InstrumentId}, {holding.Size}");
             var topic = "";
             if (holding != null)
             {
