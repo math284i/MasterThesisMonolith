@@ -93,7 +93,7 @@ public class RiskCalculator : IRiskCalculator
         if (order.Side == OrderSide.RightSided)
         {
             // Buy
-            float price = order.Stock.Price * order.Stock.Size;
+            float price = (order.Stock.Price + order.SpreadPrice) * order.Stock.Size;
             Console.WriteLine($"Buying for {price} balance is: {clientData.Balance}");
             if (clientData.Balance >= price)
             {
@@ -114,8 +114,17 @@ public class RiskCalculator : IRiskCalculator
         {
             // Sell
             var holding = _clientDatas[order.ClientId].Holdings.Find(h => h.InstrumentId == order.Stock.InstrumentId);
-            Console.WriteLine($"Riskcalculator holding: {holding.ClientId} {holding.InstrumentId}, {holding.Size}");
             var topic = "";
+            if (order.SpreadPrice > order.Stock.Price)
+            {
+                // Spread was bigger than 100 %, shouldn't be fair
+                topic = TopicGenerator.TopicForClientOrderEnded(order.ClientId.ToString());
+                order.Status = OrderStatus.Rejected;
+                order.ErrorMesssage = "Spread is too big";
+                _observable.Publish(topic, order, isTransient: true);
+                return;
+            }
+            
             if (holding != null)
             {
                 if (holding.Size >= order.Stock.Size)

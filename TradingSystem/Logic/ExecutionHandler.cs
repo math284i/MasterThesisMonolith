@@ -14,8 +14,8 @@ public class ExecutionHandler : IExecutionHandler
     private readonly ILogger<ExecutionHandler> _logger;
     private const string Id = "executionHandler";
     private readonly IObservable _observable;
-    private HashSet<Stocks> _stockOptions = new HashSet<Stocks>();
-    private HashSet<Stocks> _prices = new HashSet<Stocks>();
+    private HashSet<Stock> _stockOptions = new HashSet<Stock>();
+    private HashSet<Stock> _prices = new HashSet<Stock>();
     public ExecutionHandler(ILogger<ExecutionHandler> logger, IObservable observable)
     {
         _logger = logger;
@@ -33,7 +33,7 @@ public class ExecutionHandler : IExecutionHandler
     private void SetupClientStockPrices()
     {
         var topicInstruments = TopicGenerator.TopicForAllInstruments();
-        _observable.Subscribe<HashSet<Stocks>>(topicInstruments, Id, stocks =>
+        _observable.Subscribe<HashSet<Stock>>(topicInstruments, Id, stocks =>
         {
             _stockOptions = stocks;
 
@@ -41,7 +41,7 @@ public class ExecutionHandler : IExecutionHandler
             {
                 var topic = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
 
-                _observable.Subscribe<Stocks>(topic, Id, updatedStock =>
+                _observable.Subscribe<Stock>(topic, Id, updatedStock =>
                 {
                     var matchingStock = _stockOptions.SingleOrDefault(s => s.InstrumentId == updatedStock.InstrumentId);
                     if (matchingStock != null)
@@ -78,6 +78,7 @@ public class ExecutionHandler : IExecutionHandler
             InstrumentId = order.Stock.InstrumentId,
             Size = order.Stock.Size,
             Price = order.Stock.Price,
+            SpreadPrice = order.SpreadPrice,
         };
 
         if (order.Side == OrderSide.RightSided)

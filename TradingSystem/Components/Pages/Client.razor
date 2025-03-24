@@ -129,13 +129,13 @@
 @* <Toasts class="p-3" AutoHide="true" Delay="4000" Placement="ToastsPlacement.BottomCenter" /> *@
 
 @code {
-    private Dictionary<Guid, HashSet<Stocks>> stocks = new();
+    private Dictionary<Guid, HashSet<Stock>> stocks = new();
     private bool _isAuthenticated;
     private Guid _clientId;
     private string _clientName = "";
     private string _clientUsername = "";
     private string _clientPassword = "";
-    private readonly Dictionary<Guid, List<Stocks>> _selectedStocksPerClient = new();
+    private readonly Dictionary<Guid, List<Stock>> _selectedStocksPerClient = new();
     private List<HoldingData> _holdings = new();
     private float _balance = 0.0f;
 
@@ -150,14 +150,14 @@
         if (_isAuthenticated)
         {
             _clientId = info.ClientId;
-            stocks[_clientId] = ClientService.GetStockOptions<HashSet<Stocks>>(stockOptions =>
+            stocks[_clientId] = ClientService.GetStockOptions<HashSet<Stock>>(stockOptions =>
             {
                 stocks[_clientId] = stockOptions;
             });
 
             if (!_selectedStocksPerClient.ContainsKey(_clientId))
             {
-                _selectedStocksPerClient[_clientId] = new List<Stocks>();
+                _selectedStocksPerClient[_clientId] = new List<Stock>();
             }
         }else
         {
@@ -165,7 +165,7 @@
         }
     }
 
-    private void UpdateSelectedStocks(ChangeEventArgs args, Stocks stock)
+    private void UpdateSelectedStocks(ChangeEventArgs args, Stock stock)
     {
         Console.WriteLine($"Updating stock: {stock.InstrumentId} enabled: {(bool)args.Value}");
         var enabled = (bool)(args.Value ?? false);
@@ -179,7 +179,7 @@
 
         if (!_selectedStocksPerClient.ContainsKey(_clientId))
         {
-            _selectedStocksPerClient[_clientId] = new List<Stocks>();
+            _selectedStocksPerClient[_clientId] = new List<Stock>();
         }
 
         var selectedStocks = _selectedStocksPerClient[_clientId];
@@ -195,10 +195,10 @@
             selectedStocks.RemoveAll(s => s.InstrumentId == stock.InstrumentId);
         }
 
-        ClientService.StreamPrice(info, UpdatePrice);
+        ClientService.StreamPrice(info, UpdateAskPrice);
     }
 
-    private async void UpdatePrice(Stocks stock)
+    private async void UpdateAskPrice(Stock stock)
     {
         if (!_selectedStocksPerClient.TryGetValue(_clientId, out var selectedStocks)) return;
 
@@ -208,8 +208,20 @@
         matchingStock.Price = stock.Price;
         await InvokeAsync(StateHasChanged);
     }
+    
+    private async void UpdateBidPrice(Stock stock)
+    {
+        // if (_holdings)
+        // if (!_selectedStocksPerClient.TryGetValue(_clientId, out var selectedStocks)) return;
+        //
+        // var matchingStock = selectedStocks.SingleOrDefault(s => s.InstrumentId == stock.InstrumentId);
+        //
+        // if (matchingStock == null) return;
+        // matchingStock.Price = stock.Price;
+        // await InvokeAsync(StateHasChanged);
+    }
 
-    private async void BuyStock(Stocks stock)
+    private async void BuyStock(Stock stock)
     {
         if (stock.Price == 0 || stock.Size < 1)
         {

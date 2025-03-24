@@ -1,6 +1,6 @@
 namespace TradingSystem.Data;
 
-public class Stocks
+public class Stock
 {
     public string InstrumentId { get; set; }
     public bool EnableLivePrices { get; set; }

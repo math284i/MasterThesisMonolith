@@ -15,7 +15,7 @@ public interface IDBHandler
     public void AddClientCustomer(string name, string username, string password); //All clients added are also customers
     public void AddTransaction(TransactionData transaction);
     //public void addHolding(Guid clientId, string instrumentId, int amount); //Probably not necessary
-    public string GetClientTier(string name);
+    public Tier GetClientTier(string name);
     public float GetClientBalance(string name);
     public Guid GetClientGuid(string name);
     public List<TransactionData> GetClientTransactions(string name);
@@ -48,7 +48,7 @@ public class DBHandler : IDBHandler
 
     public void Start()
     {
-        //ResetDB();
+        ResetDB();
         SubscribeToLogin();
         PublishAllClients();
         SetupTargetPositions();
@@ -117,7 +117,7 @@ public class DBHandler : IDBHandler
             ClientId = Guid.NewGuid(),
             Name = name,
             Balance = 100.0f, //TODO: Figure out a good starting balance for new clients
-            Tier = "Average", //TODO: Figure out a good tier system
+            Tier = Tier.Premium, //TODO: Figure out a good tier system
             Holdings = new List<HoldingData>(),
         };
 
@@ -147,7 +147,7 @@ public class DBHandler : IDBHandler
             ClientId = ID,
             Name = name,
             Balance = 100.0f, //TODO: Figure out a good starting balance for new clients
-            Tier = "Regular", //TODO: Figure out a good tier system
+            Tier = Tier.Regular, //TODO: Figure out a good tier system
             Holdings = new List<HoldingData>(),
         };
         db.Clients.Add(client);
@@ -251,13 +251,13 @@ public class DBHandler : IDBHandler
         return db;
     }
 
-    public string GetClientTier(string name)
+    public Tier GetClientTier(string name)
     {
         DatabaseData db = DeserializeDB();
         var client = db.Clients.Find(x => x.Name.Equals(name));
         if(client == null)
         {
-            return "Client not found"; //TODO: Proper error handling
+            return Tier.ClientNotFound; //TODO: Proper error handling
         }
         return client.Tier;
     }
@@ -344,9 +344,9 @@ public class DBHandler : IDBHandler
             TargetPositions = new List<TargetPosition>()
         };
 
-        int initialHoldingSize = 100;
-        float initialBrokerBalance = 1000000.0f;
-        string externalBrokerTier = "external";
+        var initialHoldingSize = 100;
+        var initialBrokerBalance = 1000000.0f;
+        var externalBrokerTier = Tier.External;
 
         var danskeBankGuid = Guid.NewGuid();
         db.Clients.Add(new ClientData
@@ -354,7 +354,7 @@ public class DBHandler : IDBHandler
             ClientId = danskeBankGuid,
             Name = "Danske_Bank",
             Balance = initialBrokerBalance,
-            Tier = "internal"
+            Tier = Tier.Internal,
         });
         foreach (string s in _instrumentsOptions.Stocks)
         {
