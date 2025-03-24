@@ -107,6 +107,10 @@ public class Book : IBook
 
     public void Stop()
     {
-        
+        var topicBookOrder = TopicGenerator.TopicForBookingOrder();
+        _observable.Unsubscribe(topicBookOrder, Id);
+
+        var topicHedgeOrder = TopicGenerator.TopicForHedgingOrder();
+        _observable.Unsubscribe(topicHedgeOrder, Id);
     }
 }

@@ -42,6 +42,7 @@ public class HedgeService(IObservable observable, INordea nordea, IJPMorgan JPMo
 
     public void Stop()
     {
+        brokerInventory = new();
         var topic = TopicGenerator.TopicForHedgingOrderRequest();
         observable.Unsubscribe(topic, Id);
     }

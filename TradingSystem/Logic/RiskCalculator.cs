@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using TradingSystem.Components.Pages;
 using TradingSystem.Data;
 
 namespace TradingSystem.Logic;
@@ -15,7 +16,7 @@ public class RiskCalculator : IRiskCalculator
     private const string Id = "riskCalculator";
     private const string DanskeBankClientName = "Danske_Bank";
     private List<ClientData> _clients = new List<ClientData>();
-    private readonly ConcurrentDictionary<Guid, ClientData> _clientDatas = new ConcurrentDictionary<Guid, ClientData>();
+    private ConcurrentDictionary<Guid, ClientData> _clientDatas = new ConcurrentDictionary<Guid, ClientData>();
 
     private readonly ConcurrentDictionary<string, TargetPosition> _targetPositions =
         new ConcurrentDictionary<string, TargetPosition>();
@@ -151,6 +152,18 @@ public class RiskCalculator : IRiskCalculator
 
     public void Stop()
     {
-        
+        var topic = TopicGenerator.TopicForClientBuyOrder();
+        _observable.Unsubscribe(topic, Id);
+        var topicForClients = TopicGenerator.TopicForAllClients();
+        _observable.Unsubscribe(topicForClients, Id);
+
+        foreach (var client in _clients)
+        {
+            var topicForClientData = TopicGenerator.TopicForDBDataOfClient(client.ClientId.ToString());
+
+            _observable.Unsubscribe(topicForClientData, Id);
+        }
+        _clients = new List<ClientData>();
+        _clientDatas = new ConcurrentDictionary<Guid, ClientData>();
     }
 }
