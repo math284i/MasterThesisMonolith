@@ -140,7 +140,7 @@
     private List<HoldingData> _holdings = new();
     private Dictionary<string, bool> _checkedValue = new();
     private decimal _balance = 0.0m;
-    
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -155,6 +155,16 @@
             if(selectedExists.Success)
             {
                 _selectedStocksPerClient = selectedExists.Value;
+                foreach(var stock in selectedExists.Value[_clientId])
+                {
+                    var info = new StreamInformation
+                        {
+                            ClientId = _clientId,
+                            EnableLivePrices = true,
+                            InstrumentId = stock.InstrumentId
+                        };
+                    ClientService.StreamPrice(info, UpdateAskPrice);
+                }
             }
             var checkedValues = await ProtectedSessionStore.GetAsync<Dictionary<string, bool>>($"checked{_clientId}");
             if(checkedValues.Success)

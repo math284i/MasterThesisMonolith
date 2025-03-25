@@ -56,7 +56,9 @@ public class Book : IBook
         {
             //Customer is selling
             transaction.BuyerId = danskeBankId;
-        }else
+            transaction.SpreadPrice = -transaction.SpreadPrice;
+        }
+        else
         {
             //Customer is buying
             transaction.SellerId = danskeBankId;
@@ -98,6 +100,7 @@ public class Book : IBook
         if (response.trans.BuyerId == Guid.Empty)
         {
             //Client is selling stock
+            trans1.SpreadPrice = -trans1.SpreadPrice;
             trans1.BuyerId = danskeBankId;
             trans2.SellerId = danskeBankId;
             trans2.BuyerId = brokerId;
