@@ -136,7 +136,7 @@
     private string _clientName = "";
     private string _clientUsername = "";
     private string _clientPassword = "";
-    private readonly Dictionary<Guid, List<Stock>> _selectedStocksPerClient = new();
+    private Dictionary<Guid, List<Stock>> _selectedStocksPerClient = new();
     private List<HoldingData> _holdings = new();
     private Dictionary<string, bool> _checkedValue = new();
     private decimal _balance = 0.0m;
@@ -151,7 +151,7 @@
             _clientPassword = session.Value.Password;
             ClientService.Login(session.Value.Username, session.Value.Password, LoginSuccess, UpdateClientData);
 
-            var selectedExists = await ProtectedSessionStore.GetAsync<Dictionary<Guid, List<Stocks>>>($"selectedstocks{_clientId}");
+            var selectedExists = await ProtectedSessionStore.GetAsync<Dictionary<Guid, List<Stock>>>($"selectedstocks{_clientId}");
             if(selectedExists.Success)
             {
                 _selectedStocksPerClient = selectedExists.Value;
@@ -182,15 +182,15 @@
             });
 
             //Initial values for the render
-            _selectedStocksPerClient[_clientId] = new List<Stocks>();
-            foreach (Stocks stock in stocks[_clientId])
+            _selectedStocksPerClient[_clientId] = new List<Stock>();
+            foreach (var stock in stocks[_clientId])
             {
                 _checkedValue[stock.InstrumentId] = false;
             }
 
             //Tries to find values in session store to override initial values.
             //await statements make it so that render happens before override, so initial values have to be set before await.
-            var selectedExists = await ProtectedSessionStore.GetAsync<Dictionary<Guid, List<Stocks>>>($"selectedstocks{_clientId}");
+            var selectedExists = await ProtectedSessionStore.GetAsync<Dictionary<Guid, List<Stock>>>($"selectedstocks{_clientId}");
             if (selectedExists.Success)
             {
                 _selectedStocksPerClient = selectedExists.Value;
