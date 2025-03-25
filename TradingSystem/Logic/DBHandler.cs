@@ -12,10 +12,10 @@ public interface IDBHandler
     public void Start();
     public void Stop();
     public void AddClient(string name);
-    public void AddClientCustomer(string name, string username, string password);
+    public void AddClientCustomer(string name, string username, string password, Tier tier);
     public void AddTransaction(TransactionData transaction);
     public Tier GetClientTier(string name);
-    public float GetClientBalance(string name);
+    public decimal GetClientBalance(string name);
     public Guid GetClientGuid(string name);
     public List<TransactionData> GetClientTransactions(string name);
     public List<HoldingData> GetClientHoldings(Guid clientId);
@@ -114,7 +114,7 @@ public class DBHandler : IDBHandler
         {
             ClientId = Guid.NewGuid(),
             Name = name,
-            Balance = 100.0f,
+            Balance = 100.0m,
             Tier = Tier.Premium,
             Holdings = new List<HoldingData>(),
         };
@@ -126,7 +126,7 @@ public class DBHandler : IDBHandler
 
     //If you are a customer, you are also automatically a client. This relation does not go the other way.
     //For instance, brokers are clients, but do not need username/password for our system.
-    public void AddClientCustomer(string name, string username, string password)
+    public void AddClientCustomer(string name, string username, string password, Tier tier)
     {
         DatabaseData db = DeserializeDB();
 
@@ -144,8 +144,8 @@ public class DBHandler : IDBHandler
         {
             ClientId = ID,
             Name = name,
-            Balance = 100.0f,
-            Tier = Tier.Regular,
+            Balance = 100.0m,
+            Tier = tier,
             Holdings = new List<HoldingData>(),
         };
         db.Clients.Add(client);
@@ -245,13 +245,13 @@ public class DBHandler : IDBHandler
         return client.Tier;
     }
 
-    public float GetClientBalance(string name)
+    public decimal GetClientBalance(string name)
     {
         DatabaseData db = DeserializeDB();
         var client = db.Clients.Find(x => x.Name.Equals(name));
         if (client == null)
         {
-            return -1.0f;
+            return -1.0m;
         }
         return client.Balance;
     }
@@ -328,7 +328,7 @@ public class DBHandler : IDBHandler
         };
 
         var initialHoldingSize = 100;
-        var initialBrokerBalance = 1000000.0f;
+        var initialBrokerBalance = 1000000.0m;
         var externalBrokerTier = Tier.External;
 
         var danskeBankGuid = Guid.NewGuid();
@@ -410,9 +410,9 @@ public class DBHandler : IDBHandler
 
         Serialize(db);
 
-        AddClientCustomer("Anders", "KP", "KP");
-        AddClientCustomer("Anders2", "KP2", "KP");
-        AddClientCustomer("Mathias", "Dyberg", "Dyberg");
+        AddClientCustomer("Anders", "KP", "KP", Tier.External);
+        AddClientCustomer("Anders2", "KP2", "KP", Tier.Internal);
+        AddClientCustomer("Mathias", "Dyberg", "Dyberg", Tier.Premium);
         return;
     }
 

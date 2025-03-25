@@ -6,7 +6,7 @@
         public string InstrumentId { get; set; }
         public int Size { get; set; }
         
-        public float BidPrice { get; set; }
+        public decimal BidPrice { get; set; }
         public int SellSize { get; set; }
     }
 }

@@ -39,16 +39,16 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
     }
     private void PublishInitialMarketPrice()
     {
-        Dictionary<string, float> nordeaPrices = nordea.getPrices();
-        Dictionary<string, float> JPMorganPrices = JPMorgan.getPrices();
-        Dictionary<string, float> NASDAQPrices = NASDAQ.getPrices();
+        Dictionary<string, decimal> nordeaPrices = nordea.getPrices();
+        Dictionary<string, decimal> JPMorganPrices = JPMorgan.getPrices();
+        Dictionary<string, decimal> NASDAQPrices = NASDAQ.getPrices();
         
         foreach (Stock stock in _stockOptions)
         {
             _instrumentIds.Add(stock.InstrumentId);
 
             //Find minimal price of instrument on the market.
-            var minMarketPrice = float.MaxValue;
+            var minMarketPrice = decimal.MaxValue;
             if (nordeaPrices.ContainsKey(stock.InstrumentId) && nordeaPrices[stock.InstrumentId] < minMarketPrice)
             {
                 minMarketPrice = nordeaPrices[stock.InstrumentId];
@@ -64,7 +64,7 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
             else
             {
                 //Basecase - No price found, so none published
-                minMarketPrice = 0.0f;
+                minMarketPrice = 0.0m;
             }
 
             stock.Price = minMarketPrice;

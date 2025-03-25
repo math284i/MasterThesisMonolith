@@ -91,7 +91,7 @@ public class Book : IBook
             InstrumentId = response.trans.InstrumentId,
             Size = response.trans.Size,
             Price = response.trans.Price,
-            SpreadPrice = 0.0f,
+            SpreadPrice = 0.0m,
             Time = response.trans.Time,
             Succeeded = response.trans.Succeeded
         };

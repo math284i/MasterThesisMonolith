@@ -49,7 +49,7 @@ public class PricerEngine : IPricerEngine
             var newStock = new Stock
             {
                 InstrumentId = stock,
-                Price = 0.0f
+                Price = 0.0m
             };
             _referencePrices.Add(newStock);
             var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(newStock.InstrumentId);

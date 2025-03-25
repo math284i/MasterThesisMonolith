@@ -35,22 +35,27 @@ public class ExecutionHandler : IExecutionHandler
         var topicInstruments = TopicGenerator.TopicForAllInstruments();
         _observable.Subscribe<HashSet<Stock>>(topicInstruments, Id, stocks =>
         {
-            _stockOptions = stocks;
-
-            foreach (var stock in _stockOptions)
+            _stockOptions = new HashSet<Stock>();
+            foreach (var localStock in stocks.Select(stock => (Stock) stock.Clone()))
             {
-                var topic = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
+                _stockOptions.Add(localStock);
+            }
 
+            foreach (var topic in _stockOptions.Select(stock => 
+                         TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId)))
+            {
                 _observable.Subscribe<Stock>(topic, Id, updatedStock =>
                 {
-                    var matchingStock = _stockOptions.SingleOrDefault(s => s.InstrumentId == updatedStock.InstrumentId);
+                    var localStock = (Stock) updatedStock.Clone();
+                    var matchingStock = _stockOptions.SingleOrDefault(s => s.InstrumentId == localStock.InstrumentId);
                     if (matchingStock != null)
                     {
-                        if (_prices.Contains(matchingStock))
+                        foreach (var price in _prices.Where(price => price.InstrumentId == matchingStock.InstrumentId))
                         {
-                            _prices.Remove(matchingStock);
+                            _prices.Remove(price);
                         }
-                        _prices.Add(updatedStock);
+
+                        _prices.Add(localStock);
                     }
                 });
             }
@@ -69,7 +74,7 @@ public class ExecutionHandler : IExecutionHandler
 
     private void HandleBuyOrder(Order order)
     {
-        var matchingStock = _stockOptions.SingleOrDefault(s => s.InstrumentId == order.Stock.InstrumentId);
+        var matchingStock = _prices.SingleOrDefault(s => s.InstrumentId == order.Stock.InstrumentId);
         if (matchingStock == null) return;
         
         var transaction = new TransactionData
@@ -92,8 +97,9 @@ public class ExecutionHandler : IExecutionHandler
             transaction.SellerId = order.ClientId;
             transaction.BuyerId = Guid.Empty;
         }
-
-        if (matchingStock.Price == order.Stock.Price)
+            
+        Console.WriteLine($"system Price {matchingStock.Price} for {order.Stock.Price}");
+        if (decimal.Compare(matchingStock.Price, order.Stock.Price) == 0)
         {
             _logger.LogInformation($"Letting {order.ClientId} buy order {order.Stock.InstrumentId} at price {order.Stock.Price} quantity {order.Stock.Size}");
 
@@ -113,6 +119,13 @@ public class ExecutionHandler : IExecutionHandler
 
             var topicClient = TopicGenerator.TopicForClientOrderEnded(order.ClientId.ToString());
             _observable.Publish(topicClient, order, isTransient: true);
+        }
+        else
+        {
+            var topic = TopicGenerator.TopicForClientOrderEnded(order.ClientId.ToString());
+            order.Status = OrderStatus.Canceled;
+            order.ErrorMesssage = "Order was canceled due to price changed";
+            _observable.Publish(topic, order, isTransient: true);
         }
     }
 

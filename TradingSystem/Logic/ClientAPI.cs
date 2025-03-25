@@ -53,13 +53,15 @@ public class ClientAPI : IClient
         var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(info.InstrumentId);
         if (info.EnableLivePrices)
         {
-            _observable.Subscribe<Stock>(stockTopic, info.ClientId.ToString(), stock =>
+            var type = isAskPrice ? "Ask" : "Bid";
+            _observable.Subscribe<Stock>(stockTopic, info.ClientId.ToString() + type, stock =>
             {
+                var localStock = (Stock) stock.Clone();
                 var clientTier = _clientDatas[info.ClientId].Tier;
-                var (bid, ask) = SpreadCalculator.GetBidAsk(stock.Price, clientTier);
-                
-                stock.Price = isAskPrice ? ask : bid;
-                updatePrice.DynamicInvoke(stock);
+                var (bid, ask) = SpreadCalculator.GetBidAsk(localStock.Price, clientTier);
+
+                localStock.Price = isAskPrice ? ask : bid;
+                updatePrice.Invoke(localStock);
             });
         }
         else
@@ -70,28 +72,34 @@ public class ClientAPI : IClient
 
     public void HandleOrder(Order order, Action<Order> callback)
     {
+        var localOrder = (Order) order.Clone();
         var topicToPublish = TopicGenerator.TopicForClientBuyOrder();
-        var topicToSubscribe = TopicGenerator.TopicForClientOrderEnded(order.ClientId.ToString());
-        var clientTier = _clientDatas[order.ClientId].Tier;
+        var topicToSubscribe = TopicGenerator.TopicForClientOrderEnded(localOrder.ClientId.ToString());
+        var clientTier = _clientDatas[localOrder.ClientId].Tier;
         var spreadProcent = SpreadCalculator.GetSpreadPercentage(clientTier);
 
-        if (order.Side == OrderSide.RightSided)
+        if (localOrder.Side == OrderSide.RightSided)
         {
             // Buy
-            var priceWithSpread = order.Stock.Price;
-            order.Stock.Price = priceWithSpread * (1.0f / (1.0f + spreadProcent));
-            order.SpreadPrice = priceWithSpread - order.Stock.Price;
+            var priceWithSpread = localOrder.Stock.Price;
+            localOrder.Stock.Price = priceWithSpread * (1.0m / (1.0m + spreadProcent));
+            localOrder.SpreadPrice = priceWithSpread - localOrder.Stock.Price;
         }
         else
         {
-            var priceWithSpread = order.Stock.Price;
-            order.Stock.Price = priceWithSpread * (1.0f / (1.0f - spreadProcent));
-            order.SpreadPrice = order.Stock.Price - priceWithSpread;
+            var priceWithSpread = localOrder.Stock.Price;
+            Console.WriteLine($"pws {priceWithSpread}");
+            localOrder.Stock.Price = priceWithSpread * (1.0m / (1.0m - spreadProcent));
+            localOrder.SpreadPrice = localOrder.Stock.Price - priceWithSpread;
         }
         
-        _observable.Subscribe(topicToSubscribe, Id, callback);
+        _observable.Subscribe<Order>(topicToSubscribe, Id, ord =>
+        {
+            var ordLocal = (Order) ord.Clone();
+            callback.DynamicInvoke(ordLocal);
+        });
         
-        _observable.Publish(topicToPublish, order, isTransient: true);
+        _observable.Publish(topicToPublish, localOrder, isTransient: true);
     }
 
     public void Login(string username, string password, Action<LoginInfo> callbackLogin, Action<ClientData> callbackClientData)
@@ -128,25 +136,25 @@ public class ClientAPI : IClient
 
 internal class SpreadCalculator
 {
-    private static readonly Dictionary<Tier, float> SpreadPercentages = new()
+    private static readonly Dictionary<Tier, decimal> SpreadPercentages = new()
     {
-        { Tier.External, 0.005f },  // 0.5%
-        { Tier.Internal, 0.001f },  // 0.1%
-        { Tier.Regular, 0.002f },   // 0.2%
-        { Tier.Premium, 0.0005f }   // 0.05%
+        { Tier.External, 0.005m },  // 0.5%
+        { Tier.Internal, 0.001m },  // 0.1%
+        { Tier.Regular, 0.002m },   // 0.2%
+        { Tier.Premium, 0.0005m }   // 0.05%
     };
     
-    public static float GetSpreadPercentage(Tier tier)
+    public static decimal GetSpreadPercentage(Tier tier)
     {
         // TODO deal with tier not existing
-        return SpreadPercentages.GetValueOrDefault(tier, 0.0f);
+        return SpreadPercentages.GetValueOrDefault(tier, 0.0m);
     }
     
-    public static (float Bid, float Ask) GetBidAsk(float midPrice, Tier tier)
+    public static (decimal Bid, decimal Ask) GetBidAsk(decimal midPrice, Tier tier)
     {
         var spread = midPrice * GetSpreadPercentage(tier);
-        var ask = midPrice + (spread / 2.0f);
-        var bid = midPrice - (spread / 2.0f);
+        var ask = midPrice + (spread);
+        var bid = midPrice - (spread);
         return (bid, ask);
     }
 }
