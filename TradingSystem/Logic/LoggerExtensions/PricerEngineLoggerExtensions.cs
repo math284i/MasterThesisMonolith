@@ -15,6 +15,6 @@ public static partial class PricerEngineLoggerExtensions
     public static partial void PricerEngineStopped(this ILogger logger);
     
     [LoggerMessage(LogLevel.Information, "Pricer engine received new price for {InstrumentId} with price {Price}")]
-    public static partial void PricerEngineReceivedNewPrice(this ILogger logger, string instrumentId, float price);
+    public static partial void PricerEngineReceivedNewPrice(this ILogger logger, string instrumentId, decimal price);
     
 }

@@ -14,7 +14,7 @@ public interface IMarketDataGateway
 
 public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ) : IMarketDataGateway
 {
-    private HashSet<Stocks> _stockOptions = new HashSet<Stocks>();
+    private HashSet<Stock> _stockOptions = new HashSet<Stock>();
     private HashSet<string> _instrumentIds = new HashSet<string>();
     private readonly CancellationTokenSource _cts = new();
     private Lock _simulationLock = new();
@@ -26,30 +26,29 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
         SubscribeToInstruments();
         PublishInitialMarketPrice();
 
-        Task.Run(() => RunSimulation(_cts.Token)); // Run in a background task
+        Task.Run(() => RunSimulation(_cts.Token));
     }
 
     private void SubscribeToInstruments()
     {
         var topic = TopicGenerator.TopicForAllInstruments();
-        observable.Subscribe<HashSet<Stocks>>(topic, Id, stocks =>
+        observable.Subscribe<HashSet<Stock>>(topic, Id, stocks =>
         {
             _stockOptions = stocks;
         });
     }
     private void PublishInitialMarketPrice()
     {
-        Dictionary<string, float> nordeaPrices = nordea.getPrices();
-        Dictionary<string, float> JPMorganPrices = JPMorgan.getPrices();
-        Dictionary<string, float> NASDAQPrices = NASDAQ.getPrices();
-
-        //Need a set of only instrumentIds, as price changes mean that looking up in the stockoptions set will not function
-        foreach (Stocks stock in _stockOptions)
+        Dictionary<string, decimal> nordeaPrices = nordea.getPrices();
+        Dictionary<string, decimal> JPMorganPrices = JPMorgan.getPrices();
+        Dictionary<string, decimal> NASDAQPrices = NASDAQ.getPrices();
+        
+        foreach (Stock stock in _stockOptions)
         {
             _instrumentIds.Add(stock.InstrumentId);
 
             //Find minimal price of instrument on the market.
-            var minMarketPrice = float.MaxValue;
+            var minMarketPrice = decimal.MaxValue;
             if (nordeaPrices.ContainsKey(stock.InstrumentId) && nordeaPrices[stock.InstrumentId] < minMarketPrice)
             {
                 minMarketPrice = nordeaPrices[stock.InstrumentId];
@@ -65,7 +64,7 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
             else
             {
                 //Basecase - No price found, so none published
-                minMarketPrice = 0.0f;
+                minMarketPrice = 0.0m;
             }
 
             stock.Price = minMarketPrice;
@@ -78,7 +77,7 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
     {
         while (!token.IsCancellationRequested)
         {
-            Stocks result = await marketCheck(nordea, JPMorgan, NASDAQ);
+            Stock result = await marketCheck(nordea, JPMorgan, NASDAQ);
             if(_instrumentIds.Contains(result.InstrumentId))
             {
                 var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(result.InstrumentId);
@@ -87,7 +86,7 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
         }
     }
 
-    private async Task<Stocks> marketCheck(INordea Nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ)
+    private async Task<Stock> marketCheck(INordea Nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ)
     {
         using var cts = new CancellationTokenSource();
         var token = cts.Token;
@@ -95,32 +94,27 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
         bool firstInLocker = true;
 
         //Each API has a 1/simSpeed chance of simulating a price change every half second.
-
-        Task<Stocks> funNordea() => Task.Run( () =>
+        Task<Stock> funNordea() => Task.Run( () =>
         {
             return Nordea.simulatePriceChange(simSpeed, ref _simulationLock, ref token, ref firstInLocker);
         });
 
-        Task<Stocks> funJPMorgan() => Task.Run(() =>
+        Task<Stock> funJPMorgan() => Task.Run(() =>
         {
             return JPMorgan.simulatePriceChange(simSpeed, ref _simulationLock, ref token, ref firstInLocker);
         });
 
-        Task<Stocks> funNASDAQ() => Task.Run(() =>
+        Task<Stock> funNASDAQ() => Task.Run(() =>
         {
             return NASDAQ.simulatePriceChange(simSpeed, ref _simulationLock, ref token, ref firstInLocker);
         });
+        
+        Task<Stock>[] tasks = { funNordea(), funJPMorgan(), funNASDAQ() };
+        
+        Task<Stock> firstCompleted = await Task.WhenAny(tasks);
 
-        // Start three tasks
-        Task<Stocks>[] tasks = { funNordea(), funJPMorgan(), funNASDAQ() };
-
-        // Wait for the first task to complete
-        Task<Stocks> firstCompleted = await Task.WhenAny(tasks);
-
-        // Cancel the remaining tasks
         cts.Cancel();
 
-        // Return the result of the first completed task
         return await firstCompleted;
     }
 

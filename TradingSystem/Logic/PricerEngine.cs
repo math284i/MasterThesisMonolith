@@ -16,7 +16,7 @@ public interface IPricerEngine
 public class PricerEngine : IPricerEngine
 {
     private readonly ILogger<PricerEngine> _logger;
-    private HashSet<Stocks> _referencePrices;
+    private HashSet<Stock> _referencePrices;
     private readonly IOptions<InstrumentsOptions> _tradingOptions;
     private readonly IObservable _observable;
     private const string Id = "pricerEngine";
@@ -24,7 +24,7 @@ public class PricerEngine : IPricerEngine
     public PricerEngine(ILogger<PricerEngine> logger, IOptions<InstrumentsOptions> stocksOptions, IObservable observable)
     {
         _logger = logger;
-        _referencePrices = new HashSet<Stocks>();
+        _referencePrices = new HashSet<Stock>();
         _tradingOptions = stocksOptions;
         _observable = observable;
         
@@ -46,14 +46,14 @@ public class PricerEngine : IPricerEngine
 
         foreach (var stock in stocks)
         {
-            var newStock = new Stocks
+            var newStock = new Stock
             {
                 InstrumentId = stock,
-                Price = 0.0f
+                Price = 0.0m
             };
             _referencePrices.Add(newStock);
             var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(newStock.InstrumentId);
-            _observable.Subscribe<Stocks>(stockTopic, Id, UpdatePrice);
+            _observable.Subscribe<Stock>(stockTopic, Id, UpdatePrice);
         }
     }
     private void PublishReferencePrices()
@@ -72,9 +72,8 @@ public class PricerEngine : IPricerEngine
         _referencePrices = new();
     }
 
-    private void UpdatePrice(Stocks stock)
+    private void UpdatePrice(Stock stock)
     {
-        //Reference price should be updated aswell.
         _logger.PricerEngineReceivedNewPrice(stock.InstrumentId, stock.Price);
         var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
         _observable.Publish(stockTopic, stock);

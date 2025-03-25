@@ -7,8 +7,8 @@ namespace TradingSystem.Logic.ExternalBrokers
 {
     public interface IJPMorgan
     {
-        public Stocks simulatePriceChange(int simSpeed, ref Lock simulationLock, ref CancellationToken token, ref bool first);
-        public Dictionary<string, float> getPrices();
+        public Stock simulatePriceChange(int simSpeed, ref Lock simulationLock, ref CancellationToken token, ref bool first);
+        public Dictionary<string, decimal> getPrices();
         public List<string> getStocks();
     }
 
@@ -16,7 +16,7 @@ namespace TradingSystem.Logic.ExternalBrokers
     {
         private readonly ILogger<JPMorganAPI> _logger;
         private List<string> myStocks = new();
-        private Dictionary<string, float> myPrices = new Dictionary<string, float>();
+        private Dictionary<string, decimal> myPrices = new Dictionary<string, decimal>();
         private Random rand = new Random();
         
         public JPMorganAPI(ILogger<JPMorganAPI> logger, IOptions<BrokerStocks> brokerStocks)
@@ -25,12 +25,12 @@ namespace TradingSystem.Logic.ExternalBrokers
             var options = brokerStocks.Value;
             foreach (string name in options.JPMorgan)
             {
-                myPrices.Add(name, 10.0f);
+                myPrices.Add(name, 10.0m);
                 myStocks.Add(name);
             }
         }
 
-        public Dictionary<string,float> getPrices()
+        public Dictionary<string, decimal> getPrices()
         {
             return myPrices;
         }
@@ -39,13 +39,13 @@ namespace TradingSystem.Logic.ExternalBrokers
             return myStocks;
         }
 
-        public Stocks simulatePriceChange(int simSpeed, ref Lock simulationLock, ref CancellationToken token, ref bool first)
+        public Stock simulatePriceChange(int simSpeed, ref Lock simulationLock, ref CancellationToken token, ref bool first)
         {
             while (rand.Next(0,simSpeed) > 0)
             {
                 if (token.IsCancellationRequested)
                 {
-                    return new Stocks();
+                    return new Stock();
                 }
                 Thread.Sleep(500);
             }
@@ -56,10 +56,10 @@ namespace TradingSystem.Logic.ExternalBrokers
                 {
                     first = false;
                     var updateKey = myPrices.ElementAt(rand.Next(0, myPrices.Count)).Key;
-                    var price = (rand.Next(0, 2) > 0) ? myPrices[updateKey] - 0.1f : myPrices[updateKey] + 0.1f;
+                    var price = (rand.Next(0, 2) > 0) ? myPrices[updateKey] - 0.1m : myPrices[updateKey] + 0.1m;
                     _logger.JpMorganApiUpdatePrice(updateKey, myPrices[updateKey], price);
                     myPrices[updateKey] = price;
-                    var updatedStock = new Stocks
+                    var updatedStock = new Stock
                     {
                         InstrumentId = updateKey,
                         Price = price
@@ -67,7 +67,7 @@ namespace TradingSystem.Logic.ExternalBrokers
                     return updatedStock;
                 }else
                 {
-                    return new Stocks();
+                    return new Stock();
                 }
             }
         }

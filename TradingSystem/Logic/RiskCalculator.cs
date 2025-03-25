@@ -66,7 +66,6 @@ public class RiskCalculator : IRiskCalculator
                 var topicForTarget = TopicGenerator.TopicForTargetPositionUpdate(target.InstrumentId);
                 _observable.Subscribe<TargetPosition>(topicForTarget, Id, targetPosition =>
                 {
-                    Console.WriteLine($"Got target position {targetPosition}");
                     _targetPositions.AddOrUpdate(targetPosition.InstrumentId, targetPosition, (key, oldValue) => targetPosition);
                 });
             }
@@ -93,8 +92,7 @@ public class RiskCalculator : IRiskCalculator
         if (order.Side == OrderSide.RightSided)
         {
             // Buy
-            float price = order.Stock.Price * order.Stock.Size;
-            Console.WriteLine($"Buying for {price} balance is: {clientData.Balance}");
+            var price = (order.Stock.Price + order.SpreadPrice) * order.Stock.Size;
             if (clientData.Balance >= price)
             {
                 _logger.LogInformation("RiskCalculator accepting order");
@@ -114,8 +112,17 @@ public class RiskCalculator : IRiskCalculator
         {
             // Sell
             var holding = _clientDatas[order.ClientId].Holdings.Find(h => h.InstrumentId == order.Stock.InstrumentId);
-            Console.WriteLine($"Riskcalculator holding: {holding.ClientId} {holding.InstrumentId}, {holding.Size}");
             var topic = "";
+            if (order.SpreadPrice > order.Stock.Price)
+            {
+                // Spread was bigger than 100 %, shouldn't be fair
+                topic = TopicGenerator.TopicForClientOrderEnded(order.ClientId.ToString());
+                order.Status = OrderStatus.Rejected;
+                order.ErrorMesssage = "Spread is too big";
+                _observable.Publish(topic, order, isTransient: true);
+                return;
+            }
+            
             if (holding != null)
             {
                 if (holding.Size >= order.Stock.Size)

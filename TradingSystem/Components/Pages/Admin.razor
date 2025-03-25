@@ -56,7 +56,7 @@
 @code {
     private int simSpeed { get; set; }
     private string _developmentInstrumentId = "";
-    private float _developmentPrice;
+    private decimal _developmentPrice;
     private int _developmentTarget = 0;
 
     private async void setSimSpeed()
@@ -89,7 +89,7 @@
 
     private async void SimulateNewPrice()
     {
-        var stock = new Stocks
+        var stock = new Stock
         {
             InstrumentId = _developmentInstrumentId,
             Price = _developmentPrice
