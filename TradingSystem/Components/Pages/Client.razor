@@ -5,12 +5,14 @@
 @using TradingSystem.Logic
 @using TradingSystem.Setup
 @using Console = System.Console
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inject JsLogger Logger
 @inject IClient ClientService
 @inject IObservable Observable
 @rendermode InteractiveServer
 @inherits LayoutComponentBase
 @inject ToastService ToastService
+@inject ProtectedSessionStorage ProtectedSessionStore
 
 <link rel="stylesheet" href="Styles/ClientStyle.css">
 
@@ -47,7 +49,7 @@
                             @foreach (var stock in stocks[_clientId])
                             {
                                 <div class="stock-item">
-                                    <input type="checkbox" class="stock-checkbox" @onchange="(args) => UpdateSelectedStocks(args, stock)" />
+                                    <input type="checkbox" class="stock-checkbox" checked="@_checkedValue[stock.InstrumentId]" @onchange="(args) => UpdateSelectedStocks(args, stock)" />
                                     <label class="stock-label">@stock.InstrumentId</label>
                                 </div>
                             }
@@ -135,9 +137,34 @@
     private string _clientName = "";
     private string _clientUsername = "";
     private string _clientPassword = "";
-    private readonly Dictionary<Guid, List<Stocks>> _selectedStocksPerClient = new();
+    private Dictionary<Guid, List<Stocks>> _selectedStocksPerClient = new();
     private List<HoldingData> _holdings = new();
     private float _balance = 0.0f;
+    private Dictionary<string, bool> _checkedValue = new();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = await ProtectedSessionStore.GetAsync<LoginInfo>("session");
+        if(session.Success)
+        {
+            _clientUsername = session.Value.Username;
+            _clientPassword = session.Value.Password;
+            ClientService.Login(session.Value.Username, session.Value.Password, LoginSuccess, UpdateClientData);
+
+            var selectedExists = await ProtectedSessionStore.GetAsync<Dictionary<Guid, List<Stocks>>>($"selectedstocks{_clientId}");
+            if(selectedExists.Success)
+            {
+                _selectedStocksPerClient = selectedExists.Value;
+            }
+            var checkedValues = await ProtectedSessionStore.GetAsync<Dictionary<string, bool>>($"checked{_clientId}");
+            if(checkedValues.Success)
+            {
+                _checkedValue = checkedValues.Value;
+            }
+            await InvokeAsync(StateHasChanged);
+        }
+    }
 
     private void Login()
     {
@@ -150,10 +177,32 @@
         if (_isAuthenticated)
         {
             _clientId = info.ClientId;
+
             stocks[_clientId] = ClientService.GetStockOptions<HashSet<Stocks>>(stockOptions =>
             {
                 stocks[_clientId] = stockOptions;
             });
+
+            //Initial values for the render
+            _selectedStocksPerClient[_clientId] = new List<Stocks>();
+            foreach (Stocks stock in stocks[_clientId])
+            {
+                _checkedValue[stock.InstrumentId] = false;
+            }
+
+            //Tries to find values in session store to override initial values.
+            //await statements make it so that render happens before override, so initial values have to be set before await.
+            var selectedExists = await ProtectedSessionStore.GetAsync<Dictionary<Guid, List<Stocks>>>($"selectedstocks{_clientId}");
+            if (selectedExists.Success)
+            {
+                _selectedStocksPerClient = selectedExists.Value;
+            }
+            var checkedValues = await ProtectedSessionStore.GetAsync<Dictionary<string, bool>>($"checked{_clientId}");
+            if (checkedValues.Success)
+            {
+                _checkedValue = checkedValues.Value;
+            }
+            await InvokeAsync(StateHasChanged);
 
             if (!_selectedStocksPerClient.ContainsKey(_clientId))
             {
@@ -163,9 +212,12 @@
         {
             await ToastService.Error("Error", "Login Failed - Incorrect username or password", autoHide: true);
         }
+        await ProtectedSessionStore.SetAsync("session", info);
+        await ProtectedSessionStore.SetAsync($"selectedstocks{_clientId}", _selectedStocksPerClient);
+        await ProtectedSessionStore.SetAsync($"checked{_clientId}", _checkedValue);
     }
 
-    private void UpdateSelectedStocks(ChangeEventArgs args, Stocks stock)
+    private async void UpdateSelectedStocks(ChangeEventArgs args, Stocks stock)
     {
         Console.WriteLine($"Updating stock: {stock.InstrumentId} enabled: {(bool)args.Value}");
         var enabled = (bool)(args.Value ?? false);
@@ -176,6 +228,8 @@
             InstrumentId = stock.InstrumentId
         };
         stock.EnableLivePrices = enabled;
+
+        _checkedValue[stock.InstrumentId] = enabled;
 
         if (!_selectedStocksPerClient.ContainsKey(_clientId))
         {
@@ -196,6 +250,8 @@
         }
 
         ClientService.StreamPrice(info, UpdatePrice);
+        await ProtectedSessionStore.SetAsync($"selectedstocks{_clientId}", _selectedStocksPerClient);
+        await ProtectedSessionStore.SetAsync($"checked{_clientId}", _checkedValue);
     }
 
     private async void UpdatePrice(Stocks stock)
@@ -284,10 +340,10 @@
     {
         ClientService.Logout(LogOutSuccess);
     }
-    
-    private void LogOutSuccess(bool authenticated)
+
+    private async void LogOutSuccess(bool authenticated)
     {
         _isAuthenticated = authenticated;
-        
+        await ProtectedSessionStore.DeleteAsync("session");
     }
 }
