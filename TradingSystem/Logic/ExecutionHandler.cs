@@ -99,7 +99,7 @@ public class ExecutionHandler : IExecutionHandler
         }
             
         Console.WriteLine($"system Price {matchingStock.Price} for {order.Stock.Price}");
-        if (decimal.Compare(matchingStock.Price, order.Stock.Price) == 0)
+        if (decimal.Compare(Math.Round(matchingStock.Price,2), Math.Round(order.Stock.Price,2)) == 0)
         {
             _logger.LogInformation($"Letting {order.ClientId} buy order {order.Stock.InstrumentId} at price {order.Stock.Price} quantity {order.Stock.Size}");
 
