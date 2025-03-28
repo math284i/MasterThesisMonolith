@@ -53,12 +53,67 @@ public class PricerEngineTests
     [Fact]
     public void CanPublishClientPrice()
     {
-            
+       var testInstrument = "GME";
+       var finalPrice = 100m;
+       var observable = new Observable();
+       var instruments = new InstrumentsOptions
+       {
+           Stocks = new HashSet<string> { testInstrument }
+       };
+       var topic = TopicGenerator.TopicForClientInstrumentPrice(testInstrument);
+       var pricerEngine = GetPricerEngine(instruments, observable);
+       var stock = new Stock
+       {
+           InstrumentId = testInstrument,
+           Price = finalPrice,
+       };
+       
+       pricerEngine.Start();
+       pricerEngine.UpdatePrice(stock);
+
+       var messages = observable.GetPersistentMessages();
+       foreach (var message in messages.Where(message => message.Key == testInstrument))
+       {
+           Assert.Equal(finalPrice, message.Value);
+       }
+
     }
 
     [Fact]
     public void CanUpdatePrice()
     {
+        var testInstrument = "GME";
+        var startPrice = 100m;
+        var finalPrice = 500m;
+        var observable = new Observable();
+        var instruments = new InstrumentsOptions
+        {
+            Stocks = new HashSet<string> { testInstrument }
+        };
+        var topic = TopicGenerator.TopicForClientInstrumentPrice(testInstrument);
+        var pricerEngine = GetPricerEngine(instruments, observable);
+        var stock = new Stock
+        {
+            InstrumentId = testInstrument,
+            Price = startPrice,
+        };
+       
+        pricerEngine.Start();
+        pricerEngine.UpdatePrice(stock);
+
+        var messages = observable.GetPersistentMessages();
+        foreach (var message in messages.Where(message => message.Key == testInstrument))
+        {
+            Assert.Equal(startPrice, message.Value);
+        }
         
+        stock.Price = finalPrice;
+        pricerEngine.UpdatePrice(stock);
+        
+        messages = observable.GetPersistentMessages();
+        foreach (var message in messages.Where(message => message.Key == testInstrument))
+        {
+            Assert.Equal(finalPrice, message.Value);
+        }
     }
 }

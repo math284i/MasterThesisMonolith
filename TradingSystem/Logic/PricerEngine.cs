@@ -11,6 +11,7 @@ public interface IPricerEngine
     public void Start();
     public void Stop();
 
+    public void UpdatePrice(Stock stock);
     public HashSet<Stock> GetReferencePrices();
 }
 
@@ -79,7 +80,7 @@ public class PricerEngine : IPricerEngine
         return _referencePrices;
     }
 
-    private void UpdatePrice(Stock stock)
+    public void UpdatePrice(Stock stock)
     {
         _logger.PricerEngineReceivedNewPrice(stock.InstrumentId, stock.Price);
         foreach (var reference in _referencePrices.Where(reference => reference.InstrumentId == stock.InstrumentId))
