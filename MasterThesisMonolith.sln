@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TradingSystem", "TradingSystem\TradingSystem.csproj", "{C8B43B46-67FB-4698-AD45-95FCA29A16EC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TradingSystem.Tests", "TradingSystem.Tests\TradingSystem.Tests.csproj", "{0DA08D4A-7E2C-4A27-B8B8-80806932E06F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{C8B43B46-67FB-4698-AD45-95FCA29A16EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C8B43B46-67FB-4698-AD45-95FCA29A16EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C8B43B46-67FB-4698-AD45-95FCA29A16EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0DA08D4A-7E2C-4A27-B8B8-80806932E06F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0DA08D4A-7E2C-4A27-B8B8-80806932E06F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0DA08D4A-7E2C-4A27-B8B8-80806932E06F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0DA08D4A-7E2C-4A27-B8B8-80806932E06F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

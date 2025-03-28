@@ -30,7 +30,7 @@ public interface IDBHandler
 
 public class DBHandler : IDBHandler
 {
-    private string databaseFilePath = ".\\Data\\QuoteUnquoteDB.json";
+    private string databaseFilePath = "TradingSystem/Data/QuoteUnquoteDB.json";
 
     private readonly IObservable _observable;
     private const string Id = "DBHandler";
@@ -38,9 +38,9 @@ public class DBHandler : IDBHandler
     private InstrumentsOptions _instrumentsOptions;
     private Lock _readerLock = new();
 
-    public DBHandler(IObservable messagebus, IOptions<BrokerStocks> brokerStocks, IOptions<InstrumentsOptions> tradingOptions)
+    public DBHandler(IObservable observable, IOptions<BrokerStocks> brokerStocks, IOptions<InstrumentsOptions> tradingOptions)
     {
-        _observable = messagebus;
+        _observable = observable;
         _brokerStocks = brokerStocks.Value;
         _instrumentsOptions = tradingOptions.Value;
     }
