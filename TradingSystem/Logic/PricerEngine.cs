@@ -10,6 +10,8 @@ public interface IPricerEngine
 {
     public void Start();
     public void Stop();
+
+    public HashSet<Stock> GetReferencePrices();
 }
 
 
@@ -72,9 +74,18 @@ public class PricerEngine : IPricerEngine
         _referencePrices = new();
     }
 
+    public HashSet<Stock> GetReferencePrices()
+    {
+        return _referencePrices;
+    }
+
     private void UpdatePrice(Stock stock)
     {
         _logger.PricerEngineReceivedNewPrice(stock.InstrumentId, stock.Price);
+        foreach (var reference in _referencePrices.Where(reference => reference.InstrumentId == stock.InstrumentId))
+        {
+            reference.Price = stock.Price;
+        }
         var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
         _observable.Publish(stockTopic, stock);
     }
