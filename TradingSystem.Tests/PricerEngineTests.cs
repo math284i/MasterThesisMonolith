@@ -23,15 +23,6 @@ public class PricerEngineTests
         var testInstrument = "GME";
         var observable = new Observable();
         var finalPrice = 100m;
-        var jpPrice = new Dictionary<string, decimal>();
-        jpPrice.Add(testInstrument, finalPrice);
-        var jpMorgan = new Mock<IJPMorgan>();
-        jpMorgan.Setup(e => e.getPrices()).Returns(jpPrice);
-        var nasdaq = new Mock<INASDAQ>();
-        nasdaq.Setup(e => e.getPrices()).Returns(new Dictionary<string, decimal>());
-        var nordea = new Mock<INordea>();
-        nordea.Setup(e => e.getPrices()).Returns(new Dictionary<string, decimal>());
-        var marketDataGateway = new MarketDataGateway(observable, nordea.Object, jpMorgan.Object, nasdaq.Object);
         var instruments = new InstrumentsOptions
         {
             Stocks = new HashSet<string> { testInstrument }
@@ -43,7 +34,13 @@ public class PricerEngineTests
         var prices = pricerEngine.GetReferencePrices();
         var instrument = prices.Single();
         Assert.Equal(0.0m, instrument.Price);
-        marketDataGateway.Start();
+
+        var newStock = new Stock
+        {
+            InstrumentId = testInstrument,
+            Price = finalPrice
+        };
+        observable.Publish(topic, newStock);
         
         prices = pricerEngine.GetReferencePrices();
         instrument = prices.Single();

@@ -4,7 +4,6 @@
         <TargetFramework>net9.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
-        <PublishSingleFile>true</PublishSingleFile>
         <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     </PropertyGroup>
 
@@ -21,13 +20,13 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Content Update="Data\QuoteUnquoteDB.json">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </Content>
+      <PackageReference Include="BootstrapBlazor" Version="9.4.8" />
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="BootstrapBlazor" Version="9.4.8" />
+      <Content Update="Data\QuoteUnquoteDB.json">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Content>
     </ItemGroup>
 
 </Project>

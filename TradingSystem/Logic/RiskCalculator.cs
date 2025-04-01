@@ -73,7 +73,7 @@ public class RiskCalculator : IRiskCalculator
     }
     private void SubscribeToBuyOrders()
     {
-        var topic = TopicGenerator.TopicForClientBuyOrder();
+        var topic = TopicGenerator.TopicForClientOrder();
         _observable.Subscribe<Order>(topic, Id, CheckOrder);
     }
 
@@ -96,7 +96,7 @@ public class RiskCalculator : IRiskCalculator
             if (clientData.Balance >= price)
             {
                 _logger.LogInformation("RiskCalculator accepting order");
-                var topic = TopicGenerator.TopicForClientBuyOrderApproved();
+                var topic = TopicGenerator.TopicForClientOrderApproved();
                 _observable.Publish(topic, order, isTransient: true);
             }
             else
@@ -127,7 +127,7 @@ public class RiskCalculator : IRiskCalculator
             {
                 if (holding.Size >= order.Stock.Size)
                 {
-                    topic = TopicGenerator.TopicForClientBuyOrderApproved();
+                    topic = TopicGenerator.TopicForClientOrderApproved();
                 }
                 else
                 {
@@ -169,21 +169,16 @@ public class RiskCalculator : IRiskCalculator
     {
         if (order.Side == OrderSide.RightSided)
         {
-            // TODO ask Nikodem about target type, and below code.
             // Buy
-            if (targetPosition.Target >= danskeStock.Size) return true;
-            return danskeStock.Size < order.Stock.Size;
+            return danskeStock.Size <= targetPosition.Target || danskeStock.Size < order.Stock.Size;
         }
-        else
-        {
-            // Sell
-            return targetPosition.Target <= danskeStock.Size;
-        }
+        // Sell
+        return danskeStock.Size + order.Stock.Size > targetPosition.Target;
     }
 
     public void Stop()
     {
-        var topic = TopicGenerator.TopicForClientBuyOrder();
+        var topic = TopicGenerator.TopicForClientOrder();
         _observable.Unsubscribe(topic, Id);
         var topicForClients = TopicGenerator.TopicForAllClients();
         _observable.Unsubscribe(topicForClients, Id);

@@ -30,7 +30,7 @@ public interface IDBHandler
 
 public class DBHandler : IDBHandler
 {
-    private string databaseFilePath = "TradingSystem/Data/QuoteUnquoteDB.json";
+    private string databaseFilePath = Path.Combine(AppContext.BaseDirectory, "Data", "QuoteUnquoteDB.json");
 
     private readonly IObservable _observable;
     private const string Id = "DBHandler";
@@ -47,7 +47,7 @@ public class DBHandler : IDBHandler
 
     public void Start()
     {
-        //ResetDB();
+        ResetDB();
         SubscribeToLogin();
         PublishAllClients();
         SetupTargetPositions();
@@ -145,7 +145,7 @@ public class DBHandler : IDBHandler
         {
             ClientId = ID,
             Name = name,
-            Balance = 100.0m,
+            Balance = 1000.0m,
             Tier = tier,
             Holdings = new List<HoldingData>(),
         };

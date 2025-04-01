@@ -25,7 +25,7 @@ namespace TradingSystem.Logic.ExternalBrokers
             var options = brokerStocks.Value;
             foreach (string name in options.JPMorgan)
             {
-                myPrices.Add(name, 10.0m);
+                myPrices.Add(name, 100.0m);
                 myStocks.Add(name);
             }
         }
@@ -56,7 +56,7 @@ namespace TradingSystem.Logic.ExternalBrokers
                 {
                     first = false;
                     var updateKey = myPrices.ElementAt(rand.Next(0, myPrices.Count)).Key;
-                    var price = (rand.Next(0, 2) > 0) ? myPrices[updateKey] - 0.1m : myPrices[updateKey] + 0.1m;
+                    var price = (rand.Next(0, 2) > 0) ? myPrices[updateKey] - 10.0m : myPrices[updateKey] + 10.0m;
                     _logger.JpMorganApiUpdatePrice(updateKey, myPrices[updateKey], price);
                     myPrices[updateKey] = price;
                     var updatedStock = new Stock
