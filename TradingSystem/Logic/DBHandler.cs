@@ -47,7 +47,7 @@ public class DBHandler : IDBHandler
 
     public void Start()
     {
-        ResetDB();
+        //ResetDB();
         SubscribeToLogin();
         PublishAllClients();
         SetupTargetPositions();
