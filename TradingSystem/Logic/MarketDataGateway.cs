@@ -7,7 +7,7 @@ public interface IMarketDataGateway
 {
     public void Start();
     public void Stop();
-
+    public Task<Stock> marketCheck();
     public void setSimSpeed(int newSpeed);
 }
 
@@ -53,15 +53,15 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
             {
                 minMarketPrice = nordeaPrices[stock.InstrumentId];
             }
-            else if (JPMorganPrices.ContainsKey(stock.InstrumentId) && JPMorganPrices[stock.InstrumentId] < minMarketPrice)
+            if (JPMorganPrices.ContainsKey(stock.InstrumentId) && JPMorganPrices[stock.InstrumentId] < minMarketPrice)
             {
                 minMarketPrice = JPMorganPrices[stock.InstrumentId];
             }
-            else if (NASDAQPrices.ContainsKey(stock.InstrumentId) && NASDAQPrices[stock.InstrumentId] < minMarketPrice)
+            if (NASDAQPrices.ContainsKey(stock.InstrumentId) && NASDAQPrices[stock.InstrumentId] < minMarketPrice)
             {
                 minMarketPrice = NASDAQPrices[stock.InstrumentId];
             }
-            else
+            if(minMarketPrice == decimal.MaxValue)
             {
                 //Basecase - No price found, so none published
                 minMarketPrice = 0.0m;
@@ -73,11 +73,11 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
         }
     }
 
-    private async Task RunSimulation(CancellationToken token)
+    public async Task RunSimulation(CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
-            Stock result = await marketCheck(nordea, JPMorgan, NASDAQ);
+            Stock result = await marketCheck();
             if(_instrumentIds.Contains(result.InstrumentId))
             {
                 var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(result.InstrumentId);
@@ -86,7 +86,7 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
         }
     }
 
-    private async Task<Stock> marketCheck(INordea Nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ)
+    public async Task<Stock> marketCheck()
     {
         using var cts = new CancellationTokenSource();
         var token = cts.Token;
@@ -96,7 +96,7 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
         //Each API has a 1/simSpeed chance of simulating a price change every half second.
         Task<Stock> funNordea() => Task.Run( () =>
         {
-            return Nordea.simulatePriceChange(simSpeed, ref _simulationLock, ref token, ref firstInLocker);
+            return nordea.simulatePriceChange(simSpeed, ref _simulationLock, ref token, ref firstInLocker);
         });
 
         Task<Stock> funJPMorgan() => Task.Run(() =>
