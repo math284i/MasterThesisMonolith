@@ -9,7 +9,6 @@ public class RiskCalculatorTests
 {
     private void SetupObservable(IObservable observable, string instrumentId, Guid clientId)
     {
-        var holdings = new List<HoldingData>();
         var clientHolding = new HoldingData
         {
             InstrumentId = instrumentId,
@@ -36,7 +35,7 @@ public class RiskCalculatorTests
         {
             ClientId = dbId,
             Name = "Danske_Bank",
-            Holdings = new List<HoldingData> { holdingData },
+            Holdings = [holdingData],
         };
         var allClients = new List<ClientData> { client, danskeBank };
         var topicAllClients = TopicGenerator.TopicForAllClients();
