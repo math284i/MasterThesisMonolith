@@ -157,6 +157,7 @@ public class DBHandler : IDBHandler
 
     public void AddTransaction(TransactionData transaction)
     {
+        Console.WriteLine("Add transaction is called for intrustment: " + transaction.InstrumentId);
         DatabaseData db = DeserializeDB();
 
         transaction.TransactionId = Guid.NewGuid();
