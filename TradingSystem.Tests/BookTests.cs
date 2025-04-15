@@ -6,14 +6,8 @@ using TradingSystem.Logic;
 
 namespace TradingSystem.Tests;
 
-public class BookTests : IDisposable
+public class BookTests
 {
-    public void Dispose()
-    {
-        var db = GetDBHandler(new Observable());
-        db.ResetDB();
-    }
-
     private IBook GetBook(IObservable observable, IDBHandler dBHandler)
     {
         var logger = NullLogger<Book>.Instance;
