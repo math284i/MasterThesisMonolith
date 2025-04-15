@@ -157,10 +157,4 @@ public class ExecutionHandlerTests
 
         Assert.Equal(OrderStatus.Canceled, order.Status);
     }
-
-    [Fact]
-    public void CanBookOrderIfHedged()
-    {
-        
-    }
 }
