@@ -12,19 +12,19 @@ public class TopicGenerator
         return "marketPrice" + instrument;
     }
 
-    public static string TopicForClientBuyOrder()
+    public static string TopicForClientOrder()
     {
-        return "buyOrder";
+        return "order";
     }
 
-    public static string TopicForClientBuyOrderApproved()
+    public static string TopicForClientOrderApproved()
     {
-        return "buyOrderApproved";
+        return "orderApproved";
     }
 
     public static string TopicForClientOrderEnded(string clientId)
     {
-        return "buyOrderEnded" + clientId;
+        return "orderEnded" + clientId;
     }
     
     public static string TopicForLoginRequest()

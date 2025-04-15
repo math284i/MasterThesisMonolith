@@ -9,6 +9,8 @@ public interface IClient
 {
     public HashSet<Stock> GetStockOptions<T>(Action<T> client);
     public void HandleOrder(Order order, Action<Order> callback);
+    
+    public ConcurrentDictionary<Guid, ClientData> GetClientData();
 
     public void Login(string username, string password, Action<LoginInfo> callbackLogin,
         Action<ClientData> callbackClientData);
@@ -73,7 +75,7 @@ public class ClientAPI : IClient
     public void HandleOrder(Order order, Action<Order> callback)
     {
         var localOrder = (Order) order.Clone();
-        var topicToPublish = TopicGenerator.TopicForClientBuyOrder();
+        var topicToPublish = TopicGenerator.TopicForClientOrder();
         var topicToSubscribe = TopicGenerator.TopicForClientOrderEnded(localOrder.ClientId.ToString());
         var clientTier = _clientDatas[localOrder.ClientId].Tier;
         var spreadProcent = SpreadCalculator.GetSpreadPercentage(clientTier);
@@ -100,6 +102,11 @@ public class ClientAPI : IClient
         });
         
         _observable.Publish(topicToPublish, localOrder, isTransient: true);
+    }
+
+    public ConcurrentDictionary<Guid, ClientData> GetClientData()
+    {
+        return _clientDatas;
     }
 
     public void Login(string username, string password, Action<LoginInfo> callbackLogin, Action<ClientData> callbackClientData)

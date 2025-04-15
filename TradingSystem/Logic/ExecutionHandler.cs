@@ -63,8 +63,8 @@ public class ExecutionHandler : IExecutionHandler
     }
     private void SubscribeToBuyOrderApproved()
     {
-        var topicOrderApproved = TopicGenerator.TopicForClientBuyOrderApproved();
-        _observable.Subscribe<Order>(topicOrderApproved, Id, HandleBuyOrder);
+        var topicOrderApproved = TopicGenerator.TopicForClientOrderApproved();
+        _observable.Subscribe<Order>(topicOrderApproved, Id, HandleOrder);
     }
     private void SubscribeToHedgeResponse()
     {
@@ -72,7 +72,7 @@ public class ExecutionHandler : IExecutionHandler
         _observable.Subscribe<(TransactionData, string)>(topicHedgeResponse, Id, BookHedgedOrder);
     }
 
-    private void HandleBuyOrder(Order order)
+    private void HandleOrder(Order order)
     {
         var matchingStock = _prices.SingleOrDefault(s => s.InstrumentId == order.Stock.InstrumentId);
         if (matchingStock == null) return;
@@ -137,7 +137,7 @@ public class ExecutionHandler : IExecutionHandler
 
     public void Stop()
     {
-        var topicOrderApproved = TopicGenerator.TopicForClientBuyOrderApproved();
+        var topicOrderApproved = TopicGenerator.TopicForClientOrderApproved();
         _observable.Unsubscribe(topicOrderApproved, Id);
 
         var topicHedgeResponse = TopicGenerator.TopicForHedgingOrderResponse();

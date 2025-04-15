@@ -7,6 +7,7 @@ public interface IHedgeService
 {
     public void Start();
     public void Stop();
+    public void HandleHedgeRequest(TransactionData trans);
 }
 
 

@@ -7,6 +7,8 @@ public interface IBook
 {
     public void Start();
     public void Stop();
+    public void BookOrder(TransactionData transaction);
+    public void HedgeOrder((TransactionData trans, string brokerName) response);
 }
 
 public class Book : IBook
@@ -52,6 +54,7 @@ public class Book : IBook
     public void BookOrder(TransactionData transaction)
     {
         var danskeBankId = _dbHandler.GetClientGuid(DanskeBankClientName);
+        transaction.TransactionId = Guid.NewGuid();
         if (transaction.BuyerId == Guid.Empty)
         {
             //Customer is selling
@@ -73,6 +76,7 @@ public class Book : IBook
         var danskeBankId = _dbHandler.GetClientGuid(DanskeBankClientName);
         var brokerId = _dbHandler.GetClientGuid(response.brokerName);
 
+        response.trans.TransactionId = Guid.NewGuid();
         var trans1 = new TransactionData
         {
             TransactionId = response.trans.TransactionId,

@@ -11,7 +11,8 @@ public interface IDBHandler
 {
     public void Start();
     public void Stop();
-    public void AddClient(string name);
+    public void UpdateTargetPosition(TargetPosition newTarget);
+    public void AddClient(string name, Tier tier);
     public void AddClientCustomer(string name, string username, string password, Tier tier);
     public void AddTransaction(TransactionData transaction);
     public Tier GetClientTier(string name);
@@ -22,6 +23,11 @@ public interface IDBHandler
     public List<HoldingData> GetAllHoldings();
 
     public List<ClientData> GetAllClients();
+    public List<CustomerData> GetAllCustomers();
+    public List<TransactionData> GetAllTransactions();
+    public List<SaltData> GetAllSalts();
+
+    public void CheckLogin(LoginInfo info);
 
     public void ResetDB();
     
@@ -30,7 +36,7 @@ public interface IDBHandler
 
 public class DBHandler : IDBHandler
 {
-    private string databaseFilePath = ".\\Data\\QuoteUnquoteDB.json";
+    private string databaseFilePath;
 
     private readonly IObservable _observable;
     private const string Id = "DBHandler";
@@ -38,9 +44,12 @@ public class DBHandler : IDBHandler
     private InstrumentsOptions _instrumentsOptions;
     private Lock _readerLock = new();
 
-    public DBHandler(IObservable messagebus, IOptions<BrokerStocks> brokerStocks, IOptions<InstrumentsOptions> tradingOptions)
+    public DBHandler(IObservable observable, IOptions<BrokerStocks> brokerStocks, IOptions<InstrumentsOptions> tradingOptions, string path = "Data\\FakeDB.json")
     {
-        _observable = messagebus;
+        _observable = observable;
+        databaseFilePath = Path.Combine(AppContext.BaseDirectory, path);
+
+        //Used for resetting the database so that it matches the inventories and instruments that are defined in appsettings
         _brokerStocks = brokerStocks.Value;
         _instrumentsOptions = tradingOptions.Value;
     }
@@ -79,7 +88,7 @@ public class DBHandler : IDBHandler
         _observable.Publish(topicAllTargetPositions, allTargetPositions);
     }
     
-    private void UpdateTargetPosition(TargetPosition newTarget)
+    public void UpdateTargetPosition(TargetPosition newTarget)
     {
         var db = DeserializeDB();
 
@@ -102,21 +111,16 @@ public class DBHandler : IDBHandler
         _observable.Unsubscribe(topic, Id);
     }
 
-    public void AddClient(string name)
+    public void AddClient(string name, Tier tier)
     {
         DatabaseData db = DeserializeDB();
-
-        if(db.Clients.Exists(x => x.Name.Equals(name)))
-        {
-            return;
-        }
 
         ClientData client = new ClientData
         {
             ClientId = Guid.NewGuid(),
             Name = name,
-            Balance = 100.0m,
-            Tier = Tier.Premium,
+            Balance = 1000.0m,
+            Tier = tier,
             Holdings = new List<HoldingData>(),
         };
 
@@ -145,7 +149,7 @@ public class DBHandler : IDBHandler
         {
             ClientId = ID,
             Name = name,
-            Balance = 100.0m,
+            Balance = 1000.0m,
             Tier = tier,
             Holdings = new List<HoldingData>(),
         };
@@ -157,9 +161,9 @@ public class DBHandler : IDBHandler
 
     public void AddTransaction(TransactionData transaction)
     {
+        Console.WriteLine("Add transaction is called for intrustment: " + transaction.InstrumentId);
         DatabaseData db = DeserializeDB();
 
-        transaction.TransactionId = Guid.NewGuid();
         transaction.Time = DateTime.Now;
         db.Transactions.Add(transaction);
         if(transaction.Succeeded)
@@ -220,7 +224,10 @@ public class DBHandler : IDBHandler
                 InstrumentId = trans.InstrumentId,
                 Size = -trans.Size
             };
-            db.Holdings.Add(newHolding);
+            if(newHolding.Size > 0)
+            {
+                db.Holdings.Add(newHolding);
+            }
         }
         else
         {
@@ -299,8 +306,23 @@ public class DBHandler : IDBHandler
         DatabaseData db = DeserializeDB();
         return db.Clients;
     }
+    public List<CustomerData> GetAllCustomers()
+    {
+        DatabaseData db = DeserializeDB();
+        return db.Customers;
+    }
+    public List<TransactionData> GetAllTransactions()
+    {
+        DatabaseData db = DeserializeDB();
+        return db.Transactions;
+    }
+    public List<SaltData> GetAllSalts()
+    {
+        DatabaseData db = DeserializeDB();
+        return db.Salts;
+    }
 
-    private void CheckLogin(LoginInfo info)
+    public void CheckLogin(LoginInfo info)
     {
         var db = DeserializeDB();
 
@@ -426,8 +448,11 @@ public class DBHandler : IDBHandler
     private void Serialize(DatabaseData db)
     {
         string jsonString = JsonSerializer.Serialize(db);
-        File.WriteAllText(databaseFilePath, jsonString);
-        return;
+        lock (_readerLock)
+        {
+            File.WriteAllText(databaseFilePath, jsonString);
+            return;
+        }
     }
 
     private DatabaseData DeserializeDB()
