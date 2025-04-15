@@ -1,0 +1,207 @@
+{
+  "Clients": [
+    {
+      "ClientId": "43aa9f56-f18c-484c-8be8-5c5c98a1db7c",
+      "Name": "Danske_Bank",
+      "Balance": 1000000.0,
+      "Tier": 1,
+      "Holdings": null
+    },
+    {
+      "ClientId": "2a42a8d7-bb04-488d-9ea3-ba60fd6e8829",
+      "Name": "Nordea",
+      "Balance": 1000000.0,
+      "Tier": 0,
+      "Holdings": null
+    },
+    {
+      "ClientId": "f07376ae-c50e-4ccb-a0cb-1bbc5c32207d",
+      "Name": "NASDAQ",
+      "Balance": 1000000.0,
+      "Tier": 0,
+      "Holdings": null
+    },
+    {
+      "ClientId": "20ea98ef-7eb5-438f-8dba-410ab1f00baa",
+      "Name": "JPMorgan",
+      "Balance": 1000000.0,
+      "Tier": 0,
+      "Holdings": null
+    },
+    {
+      "ClientId": "782b1f93-c5e5-4b90-92cb-443d317e3ee1",
+      "Name": "Anders",
+      "Balance": 1000.0,
+      "Tier": 0,
+      "Holdings": []
+    },
+    {
+      "ClientId": "07d50e9a-1ac7-411d-b78d-f5137b5dba6e",
+      "Name": "Anders2",
+      "Balance": 1000.0,
+      "Tier": 1,
+      "Holdings": []
+    },
+    {
+      "ClientId": "b2c358c3-d928-4703-9ae1-4a606ff6e6a9",
+      "Name": "Mathias",
+      "Balance": 1000.0,
+      "Tier": 3,
+      "Holdings": []
+    }
+  ],
+  "Customers": [
+    {
+      "ClientId": "782b1f93-c5e5-4b90-92cb-443d317e3ee1",
+      "Username": "KP",
+      "Password": "\uFFFDP\uFFFD\u003C\u0201\uFFFD\u07E5F\uFFFD?\uFFFD\uFFFDM\uFFFD\uFFFD\uFFFDp\u00052\uFFFD\u0027\uFFFDn\uFFFD*\f1\uFFFD\u0012}"
+    },
+    {
+      "ClientId": "07d50e9a-1ac7-411d-b78d-f5137b5dba6e",
+      "Username": "KP2",
+      "Password": "\uFFFDp\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFDn\u001A\uFFFD\u000E\uFFFD\u000B#\uFFFD\uFFFD)*\uFFFD\u001B\uFFFD\n\uFFFDk\uFFFD\uFFFD\t\uFFFDp"
+    },
+    {
+      "ClientId": "b2c358c3-d928-4703-9ae1-4a606ff6e6a9",
+      "Username": "Dyberg",
+      "Password": "\uFFFD\uFFFDa\uFFFD\uFFFD\uFFFD\u003C|\uFFFD\u0011\uFFFD\uFFFDs8Q\u007F\uFFFD\uFFFD\uFFFD\uFFFD\u07BC\uFFFD\u0000\u0018Z\uFFFD\uFFFD,\u000B\uFFFD\u001E"
+    }
+  ],
+  "Holdings": [
+    {
+      "ClientId": "43aa9f56-f18c-484c-8be8-5c5c98a1db7c",
+      "InstrumentId": "GME",
+      "Size": 100,
+      "BidPrice": 0,
+      "SellSize": 0
+    },
+    {
+      "ClientId": "43aa9f56-f18c-484c-8be8-5c5c98a1db7c",
+      "InstrumentId": "NVDA",
+      "Size": 100,
+      "BidPrice": 0,
+      "SellSize": 0
+    },
+    {
+      "ClientId": "43aa9f56-f18c-484c-8be8-5c5c98a1db7c",
+      "InstrumentId": "NOVO-B",
+      "Size": 100,
+      "BidPrice": 0,
+      "SellSize": 0
+    },
+    {
+      "ClientId": "43aa9f56-f18c-484c-8be8-5c5c98a1db7c",
+      "InstrumentId": "AAPL",
+      "Size": 100,
+      "BidPrice": 0,
+      "SellSize": 0
+    },
+    {
+      "ClientId": "43aa9f56-f18c-484c-8be8-5c5c98a1db7c",
+      "InstrumentId": "TSLA",
+      "Size": 100,
+      "BidPrice": 0,
+      "SellSize": 0
+    },
+    {
+      "ClientId": "2a42a8d7-bb04-488d-9ea3-ba60fd6e8829",
+      "InstrumentId": "TSLA",
+      "Size": 100,
+      "BidPrice": 0,
+      "SellSize": 0
+    },
+    {
+      "ClientId": "2a42a8d7-bb04-488d-9ea3-ba60fd6e8829",
+      "InstrumentId": "META",
+      "Size": 100,
+      "BidPrice": 0,
+      "SellSize": 0
+    },
+    {
+      "ClientId": "2a42a8d7-bb04-488d-9ea3-ba60fd6e8829",
+      "InstrumentId": "INTC",
+      "Size": 100,
+      "BidPrice": 0,
+      "SellSize": 0
+    },
+    {
+      "ClientId": "f07376ae-c50e-4ccb-a0cb-1bbc5c32207d",
+      "InstrumentId": "NOVO-B",
+      "Size": 100,
+      "BidPrice": 0,
+      "SellSize": 0
+    },
+    {
+      "ClientId": "f07376ae-c50e-4ccb-a0cb-1bbc5c32207d",
+      "InstrumentId": "AAPL",
+      "Size": 100,
+      "BidPrice": 0,
+      "SellSize": 0
+    },
+    {
+      "ClientId": "f07376ae-c50e-4ccb-a0cb-1bbc5c32207d",
+      "InstrumentId": "PFE",
+      "Size": 100,
+      "BidPrice": 0,
+      "SellSize": 0
+    },
+    {
+      "ClientId": "20ea98ef-7eb5-438f-8dba-410ab1f00baa",
+      "InstrumentId": "DIS",
+      "Size": 100,
+      "BidPrice": 0,
+      "SellSize": 0
+    },
+    {
+      "ClientId": "20ea98ef-7eb5-438f-8dba-410ab1f00baa",
+      "InstrumentId": "GME",
+      "Size": 100,
+      "BidPrice": 0,
+      "SellSize": 0
+    },
+    {
+      "ClientId": "20ea98ef-7eb5-438f-8dba-410ab1f00baa",
+      "InstrumentId": "NVDA",
+      "Size": 100,
+      "BidPrice": 0,
+      "SellSize": 0
+    }
+  ],
+  "Transactions": [],
+  "Salts": [
+    {
+      "ClientId": "782b1f93-c5e5-4b90-92cb-443d317e3ee1",
+      "Salt": "\uFFFDwR\uFFFD\u001C:g\u0026m\uFFFD\uFFFDxg\uFFFD\uFFFD\uFFFD"
+    },
+    {
+      "ClientId": "07d50e9a-1ac7-411d-b78d-f5137b5dba6e",
+      "Salt": "\b\uFFFD\uFFFD;\uFFFDe\r\u0002rq\uFFFD\u0010\uFFFDu\uFFFD\u0001"
+    },
+    {
+      "ClientId": "b2c358c3-d928-4703-9ae1-4a606ff6e6a9",
+      "Salt": "\uFFFDX\u0017\u007F\uFFFD\uFFFDu\uFFFD\uFFFD6b\uFFFDlK\uFFFD}"
+    }
+  ],
+  "TargetPositions": [
+    {
+      "InstrumentId": "GME",
+      "Target": 97
+    },
+    {
+      "InstrumentId": "NVDA",
+      "Target": 97
+    },
+    {
+      "InstrumentId": "NOVO-B",
+      "Target": 97
+    },
+    {
+      "InstrumentId": "AAPL",
+      "Target": 97
+    },
+    {
+      "InstrumentId": "TSLA",
+      "Target": 97
+    }
+  ]
+}
