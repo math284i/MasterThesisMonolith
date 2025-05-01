@@ -1,7 +1,12 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
+using NATS.Client.Core;
+using NATS.Client.JetStream;
+using NATS.Client.JetStream.Models;
+using NATS.Net;
 using TradingSystem.Data;
 using TradingSystem.DTO;
+using Tier = TradingSystem.Data.Tier;
 
 namespace TradingSystem.Logic;
 
@@ -24,13 +29,15 @@ public class ClientAPI : IClient
     private const string Id = "clientAPI";
     private readonly IObservable _observable;
     private readonly ConcurrentDictionary<Guid, ClientData> _clientDatas;
+    private INatsClient _natsClient;
 
-    public ClientAPI(IObservable observable)
+    public ClientAPI(IObservable observable, NatsClient natsClient)
     {
         _tradingOptions = new HashSet<Stock>();
         _clients = new List<Delegate>();
         _clientDatas = new ConcurrentDictionary<Guid, ClientData>();
         _observable = observable;
+        _natsClient = natsClient;
         var topic = TopicGenerator.TopicForAllInstruments();
         _observable.Subscribe<HashSet<Stock>>(topic, Id, stockOptions =>
         {
@@ -48,21 +55,56 @@ public class ClientAPI : IClient
         return _tradingOptions;
     }
 
-    public void StreamPrice(StreamInformation info, Action<Stock> updatePrice, bool isAskPrice = true)
+    public async void StreamPrice(StreamInformation info, Action<Stock> updatePrice, bool isAskPrice = true)
     {
         var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(info.InstrumentId);
         if (info.EnableLivePrices)
         {
             var type = isAskPrice ? "Ask" : "Bid";
-            _observable.Subscribe<Stock>(stockTopic, info.ClientId.ToString() + type, stock =>
-            {
-                var localStock = (Stock) stock.Clone();
-                var clientTier = _clientDatas[info.ClientId].Tier;
-                var (bid, ask) = SpreadCalculator.GetBidAsk(localStock.Price, clientTier);
+            var cts = CancellationToken.None;
+            var ctx = _natsClient.CreateJetStreamContext();
+            // var consumer = await ctx.GetConsumerAsync("StreamPrices", "clientPrices_GME", cts);
+            // await foreach (var msg in consumer.ConsumeAsync<Stock>(cancellationToken: cts))
+            // {
+            //     var data = msg.Data;
+            //     Console.WriteLine($"Received: {data}");
+            //     await msg.AckAsync(cancellationToken: cts);
+            // }
+            // var ctx = _natsClient.CreateJetStreamContext();
+            // var config = new ConsumerConfig
+            // {
+            //     FilterSubjects = [stockTopic],
+            //     DurableName = info.ClientId + stockTopic,
+            //     Name = info.ClientId + stockTopic
+            // };
+            //
+            // var consumer = await ctx.CreateOrUpdateConsumerAsync("StreamPrices", config, cts.Token);
 
-                localStock.Price = isAskPrice ? ask : bid;
-                updatePrice.Invoke(localStock);
-            });
+            // _natsClient.SubscribeAsync();
+            // var subscriptionTask = Task.Run(async () =>
+            // {
+            //     await foreach (var msg in _natsClient.SubscribeAsync<Stock>(stockTopic, cancellationToken: cts.Token))
+            //     {
+            //         var order = msg.Data;
+            //         Console.WriteLine($"Subscriber received {msg.Subject}: {order}");
+            //         var localStock = (Stock)order.Clone();
+            //         var clientTier = _clientDatas[info.ClientId].Tier;
+            //         var (bid, ask) = SpreadCalculator.GetBidAsk(localStock.Price, clientTier);
+            //
+            //         localStock.Price = isAskPrice ? ask : bid;
+            //         updatePrice.Invoke(localStock);
+            //     }
+            //     Console.WriteLine("Unsubscribed");
+            // }, cts.Token)
+            // await subscriptionTask;
+            // var js = _natsClient.CreateJetStreamContext();
+            // var consumer = await js.GetConsumerAsync("StreamPrices", "clientPrices_1234", cts);
+            // await foreach (var msg in consumer.ConsumeAsync<Stock>(cancellationToken: cts))
+            // {
+            //     var data = msg.Data;
+            //     Console.WriteLine($"CLIENT Received: {data}");
+            //     await msg.AckAsync(cancellationToken: cts);
+            // }
         }
         else
         {

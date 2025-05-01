@@ -11,6 +11,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .Services.AddBootstrapBlazor()
     .SetupJsLogging()
+    .SetupNats(builder.Configuration)
     .SetupExternalData(builder.Configuration).SetupTradingSystem();
 
 var app = builder.Build();

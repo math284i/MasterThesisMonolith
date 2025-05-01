@@ -4,7 +4,7 @@ public class TopicGenerator
 {
     public static string TopicForClientInstrumentPrice(string instrument)
     {
-        return "clientPrice" + instrument;
+        return "clientPrices." + instrument;
     }
 
     public static string TopicForMarketInstrumentPrice(string instrument)

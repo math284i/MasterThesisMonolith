@@ -1,4 +1,10 @@
+using System.Collections.Generic;
+using System.Threading;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NATS.Client.JetStream;
+using NATS.Client.JetStream.Models;
+using NATS.Net;
 using TradingSystem.Data;
 using TradingSystem.DTO;
 using TradingSystem.Logic.LoggerExtensions;
@@ -8,7 +14,7 @@ namespace TradingSystem.Logic;
 
 public interface IPricerEngine
 {
-    public void Start();
+    public Task Start();
     public void Stop();
 }
 
@@ -19,25 +25,58 @@ public class PricerEngine : IPricerEngine
     private HashSet<Stock> _referencePrices;
     private readonly IOptions<InstrumentsOptions> _tradingOptions;
     private readonly IObservable _observable;
+    private readonly NatsClient _natsClient;
+    private INatsJSContext _clientPricesStream;
     private const string Id = "pricerEngine";
 
-    public PricerEngine(ILogger<PricerEngine> logger, IOptions<InstrumentsOptions> stocksOptions, IObservable observable)
+    public PricerEngine(ILogger<PricerEngine> logger
+        , IOptions<InstrumentsOptions> stocksOptions
+        , IObservable observable
+        , NatsClient natsClient)
     {
         _logger = logger;
         _referencePrices = new HashSet<Stock>();
         _tradingOptions = stocksOptions;
         _observable = observable;
-        
+        _natsClient = natsClient;
     }
 
-    public void Start()
+    public async Task Start()
     {
         _logger.PricerEngineStartUp();
-
+        
+        await SetupJetStream();
         SubscribeToMarketPriceUpdates();
         PublishReferencePrices();
 
         _logger.PricerEngineStarted();
+    }
+
+    private async Task SetupJetStream()
+    {
+        _clientPricesStream = _natsClient.CreateJetStreamContext();
+        var streamConfig = new StreamConfig
+        {
+            Name = "StreamPrices",
+            Subjects = ["clientPrices.*"],
+            Description = "This is where client prices will be streamed",
+            AllowDirect = true,
+            MaxConsumers = -1,
+            MaxMsgsPerSubject = 1
+        };
+
+        // Create stream
+        var stream = await _clientPricesStream.CreateOrUpdateStreamAsync(streamConfig);
+        var cts = new CancellationTokenSource();
+        var ctx = _natsClient.CreateJetStreamContext();
+        var consumerConfig = new ConsumerConfig
+        {
+            DurableName = "clientPrices_GME", // unique per consumer
+            DeliverPolicy = ConsumerConfigDeliverPolicy.LastPerSubject,
+            FilterSubject = "clientPrices_GME"
+        };
+
+        //await _clientPricesStream.CreateOrUpdateConsumerAsync("StreamPrices", consumerConfig, cts.Token);
     }
 
     private void SubscribeToMarketPriceUpdates()
@@ -72,10 +111,11 @@ public class PricerEngine : IPricerEngine
         _referencePrices = new();
     }
 
-    private void UpdatePrice(Stock stock)
+    private async void UpdatePrice(Stock stock)
     {
         _logger.PricerEngineReceivedNewPrice(stock.InstrumentId, stock.Price);
         var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
         _observable.Publish(stockTopic, stock);
+        await _clientPricesStream.PublishAsync(stockTopic, stock);
     }
 }

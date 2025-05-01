@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using NATS.Net;
 using TradingSystem.Data;
 using TradingSystem.Logic;
 using TradingSystem.Logic.ExternalBrokers;
@@ -9,6 +11,18 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection SetupJsLogging(this IServiceCollection services)
     {
         return services.AddScoped<JsLogger>();
+    }
+
+    public static IServiceCollection SetupNats(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<NatsOptions>(configuration.GetSection(NatsOptions.SectionName));
+
+        services.AddSingleton<NatsClient>(provider =>
+        {
+            var options = provider.GetRequiredService<IOptions<NatsOptions>>().Value;
+            return new NatsClient(options.NatsUrl);
+        });
+        return services;
     }
 
     public static IServiceCollection SetupExternalData(this IServiceCollection services, IConfiguration configuration)

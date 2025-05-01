@@ -27,6 +27,7 @@
 
     <ItemGroup>
       <PackageReference Include="BootstrapBlazor" Version="9.4.8" />
+      <PackageReference Include="NATS.Net" Version="2.6.0-preview.4" />
     </ItemGroup>
 
 </Project>

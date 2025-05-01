@@ -1,4 +1,6 @@
 ﻿@page "/Admin"
+@using NATS.Client.JetStream
+@using NATS.Net
 @using TradingSystem.Data
 @using TradingSystem.Logic
 @using Console = System.Console
@@ -8,6 +10,7 @@
 @inject IMarketDataGateway MarketDataGateway
 @inject IObservable Observable
 @inject ToastService ToastService
+@inject NatsClient natsClient
 
 <link rel="stylesheet" href="Styles/AdminStyle.css">
 
@@ -58,7 +61,13 @@
     private string _developmentInstrumentId = "";
     private decimal _developmentPrice;
     private int _developmentTarget = 0;
+    private INatsJSContext clientStream;
 
+    protected override async Task OnInitializedAsync()
+    {
+        clientStream = natsClient.CreateJetStreamContext();
+    }
+    
     private async void setSimSpeed()
     {
         if (simSpeed < 1)
@@ -96,6 +105,8 @@
         };
         var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
         Observable.Publish(stockTopic, stock);
+        var stockTc = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
+        await clientStream.PublishAsync(stockTc, stock);
 
         await ToastService.Success("Success", "New price added to bus", autoHide: true);
     }
