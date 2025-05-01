@@ -1,3 +1,4 @@
+using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 using NATS.Net;
 using TradingSystem.Data;
@@ -50,6 +51,7 @@ public class Logic : IHostedService
         _logger.ServiceStarted();
         
         //PlayWithNats();
+        //NatsConsumerExample();
         
         return Task.CompletedTask;
     }
@@ -71,6 +73,50 @@ public class Logic : IHostedService
         return Task.CompletedTask;
     }
 
+    private async void NatsConsumerExample()
+    {
+
+        var streamName = "EVENTS";
+        var url = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://127.0.0.1:4222";
+
+
+        await using var nc = new NatsClient(url); // Will fail if server isn't there. Figure out a smart way to deal with it. 
+        var js = nc.CreateJetStreamContext();
+
+        var stream = await js.CreateOrUpdateStreamAsync(new StreamConfig(streamName, subjects: ["events.>"]));
+
+        await js.PublishAsync(subject: "events.1", data: "event-data-1");
+        await js.PublishAsync(subject: "events.2", data: "event-data-2");
+        await js.PublishAsync(subject: "events.3", data: "event-data-3");
+
+        var durable = await stream.CreateOrUpdateConsumerAsync(new ConsumerConfig("processor"));
+
+
+        await foreach (var msg in durable.FetchAsync<string>(opts: new NatsJSFetchOpts { MaxMsgs = 1 }))
+        {
+            Console.WriteLine($"Received {msg.Subject} from durable consumer");
+        }
+
+        await js.PublishAsync(subject: "events.1", data: "event-data-10");
+        
+        await stream.DeleteConsumerAsync("processor");
+        
+        try
+        {
+            await stream.GetConsumerAsync("processor");
+        }
+        catch (NatsJSApiException e)
+        {
+            if (e.Error.Code == 404)
+            {
+                Console.WriteLine("Consumer is gone");
+            }
+        }
+
+
+        Console.WriteLine("Bye!");
+    }
+    
     private async void PlayWithNats()
     {
         _logger.LogInformation("Starting to play with nats");

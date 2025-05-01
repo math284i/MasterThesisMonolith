@@ -14,7 +14,7 @@ namespace TradingSystem.Logic;
 
 public interface IPricerEngine
 {
-    public Task Start();
+    public void Start();
     public void Stop();
 }
 
@@ -41,18 +41,18 @@ public class PricerEngine : IPricerEngine
         _natsClient = natsClient;
     }
 
-    public async Task Start()
+    public void Start()
     {
         _logger.PricerEngineStartUp();
         
-        await SetupJetStream();
+        SetupJetStream();
         SubscribeToMarketPriceUpdates();
         PublishReferencePrices();
 
         _logger.PricerEngineStarted();
     }
 
-    private async Task SetupJetStream()
+    private async void SetupJetStream()
     {
         _clientPricesStream = _natsClient.CreateJetStreamContext();
         var streamConfig = new StreamConfig
@@ -71,12 +71,13 @@ public class PricerEngine : IPricerEngine
         var ctx = _natsClient.CreateJetStreamContext();
         var consumerConfig = new ConsumerConfig
         {
+            Name = "clientPrices_GME",
             DurableName = "clientPrices_GME", // unique per consumer
-            DeliverPolicy = ConsumerConfigDeliverPolicy.LastPerSubject,
-            FilterSubject = "clientPrices_GME"
+            DeliverPolicy = ConsumerConfigDeliverPolicy.Last,
+            FilterSubject = "clientPrices.GME",
         };
-
-        //await _clientPricesStream.CreateOrUpdateConsumerAsync("StreamPrices", consumerConfig, cts.Token);
+        //stream.CreateOrUpdateConsumerAsync();
+        await _clientPricesStream.CreateOrUpdateConsumerAsync("StreamPrices", consumerConfig, cts.Token);
     }
 
     private void SubscribeToMarketPriceUpdates()

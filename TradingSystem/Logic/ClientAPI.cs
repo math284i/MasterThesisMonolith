@@ -63,13 +63,23 @@ public class ClientAPI : IClient
             var type = isAskPrice ? "Ask" : "Bid";
             var cts = CancellationToken.None;
             var ctx = _natsClient.CreateJetStreamContext();
-            // var consumer = await ctx.GetConsumerAsync("StreamPrices", "clientPrices_GME", cts);
-            // await foreach (var msg in consumer.ConsumeAsync<Stock>(cancellationToken: cts))
-            // {
-            //     var data = msg.Data;
-            //     Console.WriteLine($"Received: {data}");
-            //     await msg.AckAsync(cancellationToken: cts);
-            // }
+            
+            //TODO All of below might have to be in its own thread.
+            
+            var consumer = await ctx.GetConsumerAsync("StreamPrices", "clientPrices_GME", cts);
+            await foreach (var msg in consumer.ConsumeAsync<Stock>(cancellationToken: cts))
+            {
+                await msg.AckAsync(cancellationToken: cts);
+                var order = msg.Data;
+                Console.WriteLine($"Client Received: {order.InstrumentId} with price: {order.Price}");
+                var localStock = (Stock)order.Clone();
+                var clientTier = _clientDatas[info.ClientId].Tier;
+                var (bid, ask) = SpreadCalculator.GetBidAsk(localStock.Price, clientTier);
+                
+                localStock.Price = isAskPrice ? ask : bid;
+                updatePrice.Invoke(localStock);
+                Console.WriteLine($"Client should have updated price isAskPrice {isAskPrice}");
+            }
             // var ctx = _natsClient.CreateJetStreamContext();
             // var config = new ConsumerConfig
             // {
@@ -81,9 +91,10 @@ public class ClientAPI : IClient
             // var consumer = await ctx.CreateOrUpdateConsumerAsync("StreamPrices", config, cts.Token);
 
             // _natsClient.SubscribeAsync();
+            
             // var subscriptionTask = Task.Run(async () =>
             // {
-            //     await foreach (var msg in _natsClient.SubscribeAsync<Stock>(stockTopic, cancellationToken: cts.Token))
+            //     await foreach (var msg in _natsClient.SubscribeAsync<Stock>(stockTopic, cancellationToken: cts))
             //     {
             //         var order = msg.Data;
             //         Console.WriteLine($"Subscriber received {msg.Subject}: {order}");
@@ -94,8 +105,9 @@ public class ClientAPI : IClient
             //         localStock.Price = isAskPrice ? ask : bid;
             //         updatePrice.Invoke(localStock);
             //     }
+            //
             //     Console.WriteLine("Unsubscribed");
-            // }, cts.Token)
+            // }, cts);
             // await subscriptionTask;
             // var js = _natsClient.CreateJetStreamContext();
             // var consumer = await js.GetConsumerAsync("StreamPrices", "clientPrices_1234", cts);
