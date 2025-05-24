@@ -1,3 +1,5 @@
+using NATS.Client.JetStream.Models;
+using NATS.Net;
 using TradingSystem.Data;
 using TradingSystem.Logic.ExternalBrokers;
 
@@ -12,7 +14,7 @@ public interface IMarketDataGateway
 }
 
 
-public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ) : IMarketDataGateway
+public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan JPMorgan, INASDAQ NASDAQ, NatsClient natsClient) : IMarketDataGateway
 {
     private HashSet<Stock> _stockOptions = new HashSet<Stock>();
     private HashSet<string> _instrumentIds = new HashSet<string>();
@@ -20,11 +22,33 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
     private Lock _simulationLock = new();
     private const string Id = "marketDataGateway";
     private int simSpeed = 25;
+    
+    private readonly Dictionary<string, CancellationTokenSource> _subscriptionTokens = new();
+    private readonly List<Task> _subscriptionTasks = new();
 
     public void Start()
     {
+        SetupConsumers();
+    }
+
+    private async void SetupConsumers()
+    {
+        var consumerConfig = new ConsumerConfig
+        {
+            Name = "MarketDataGatewayAllInstrumentsConsumer",
+            DurableName = "MarketDataGatewayAllInstrumentsConsumer",
+            DeliverPolicy = ConsumerConfigDeliverPolicy.All,
+            AckPolicy = ConsumerConfigAckPolicy.Explicit,
+            DeliverGroup = "MarketDataGateway",
+            FilterSubject = TopicGenerator.TopicForAllInstruments()
+        };
+        
+        var stream = "StreamMisc";
+        
+        await natsClient.CreateJetStreamContext().CreateOrUpdateConsumerAsync(stream, consumerConfig);
+        
         SubscribeToInstruments();
-        PublishInitialMarketPrice();
+
 
         Task.Run(() => RunSimulation(_cts.Token));
     }
@@ -32,12 +56,39 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
     private void SubscribeToInstruments()
     {
         var topic = TopicGenerator.TopicForAllInstruments();
-        observable.Subscribe<HashSet<Stock>>(topic, Id, stocks =>
+        // observable.Subscribe<HashSet<Stock>>(topic, Id, stocks =>
+        // {
+        //     _stockOptions = stocks;
+        //     PublishInitialMarketPrice();
+        // });
+        
+        if (_subscriptionTokens.TryGetValue(topic, out var existingCts))
         {
-            _stockOptions = stocks;
-        });
+            existingCts.Cancel();
+            _subscriptionTokens.Remove(topic);
+        }
+
+        var cts = new CancellationTokenSource();
+        _subscriptionTokens[topic] = cts;
+        
+        var task = Task.Run(async () =>
+        {
+            try
+            {
+                var consumer = await natsClient.CreateJetStreamContext().GetConsumerAsync("StreamMisc", "MarketDataGatewayAllInstrumentsConsumer", cts.Token);
+                await foreach (var msg in consumer.ConsumeAsync<HashSet<Stock>>(cancellationToken: cts.Token))
+                {
+                    //await msg.AckProgressAsync(); TODO figure out time
+                    _stockOptions = msg.Data;
+                    PublishInitialMarketPrice();
+                    await msg.AckAsync(cancellationToken: cts.Token);
+                }
+            }
+            catch (OperationCanceledException) {  }
+        }, cts.Token);
+        _subscriptionTasks.Add(task);
     }
-    private void PublishInitialMarketPrice()
+    private async void PublishInitialMarketPrice()
     {
         Dictionary<string, decimal> nordeaPrices = nordea.getPrices();
         Dictionary<string, decimal> JPMorganPrices = JPMorgan.getPrices();
@@ -46,7 +97,6 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
         foreach (Stock stock in _stockOptions)
         {
             _instrumentIds.Add(stock.InstrumentId);
-
             //Find minimal price of instrument on the market.
             var minMarketPrice = decimal.MaxValue;
             if (nordeaPrices.ContainsKey(stock.InstrumentId) && nordeaPrices[stock.InstrumentId] < minMarketPrice)
@@ -69,7 +119,8 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
 
             stock.Price = minMarketPrice;
             var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
-            observable.Publish(stockTopic, stock);
+            //observable.Publish(stockTopic, stock);
+            await natsClient.PublishAsync(stockTopic, stock);
         }
     }
 
@@ -77,11 +128,12 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
     {
         while (!token.IsCancellationRequested)
         {
-            Stock result = await marketCheck(nordea, JPMorgan, NASDAQ);
+            var result = await marketCheck(nordea, JPMorgan, NASDAQ);
             if(_instrumentIds.Contains(result.InstrumentId))
             {
                 var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(result.InstrumentId);
-                observable.Publish(stockTopic, result);
+                //observable.Publish(stockTopic, result);
+                await natsClient.PublishAsync(stockTopic, result, cancellationToken: token);
             }
         }
     }
@@ -118,7 +170,7 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
         return await firstCompleted;
     }
 
-    public void Stop()
+    public async void Stop()
     {
         _cts.Cancel();
         var topic = TopicGenerator.TopicForAllInstruments();
@@ -126,6 +178,19 @@ public class MarketDataGateway(IObservable observable, INordea nordea, IJPMorgan
 
         _stockOptions = new();
         _instrumentIds = new();
+        
+        var keys = _subscriptionTokens.Keys.ToList(); 
+
+        foreach (var key in keys)
+        {
+            if (_subscriptionTokens.TryGetValue(key, out var cts))
+            {
+                await cts.CancelAsync();
+            }
+        }
+
+        _subscriptionTokens.Clear();
+        await Task.WhenAll(_subscriptionTasks);
     }
 
     public void setSimSpeed(int newSpeed)

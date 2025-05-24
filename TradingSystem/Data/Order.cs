@@ -2,13 +2,13 @@ namespace TradingSystem.Data;
 
 public class Order : ICloneable
 {
-    public required Guid ClientId;
-    public required OrderSide Side;
-    public required Stock Stock;
-    public OrderStatus Status;
-    public string ErrorMesssage = "";
-    public decimal SpreadPrice;
-    public bool HedgeOrder;
+    public required Guid ClientId { get; set; }
+    public required OrderSide Side { get; set; }
+    public required Stock Stock { get; set; }
+    public OrderStatus Status { get; set; }
+    public string ErrorMesssage  { get; set; } = "";
+    public decimal SpreadPrice { get; set; }
+    public bool HedgeOrder { get; set; }
     public object Clone()
     {
         return new Order

@@ -9,80 +9,80 @@ public class TopicGenerator
 
     public static string TopicForMarketInstrumentPrice(string instrument)
     {
-        return "marketPrice" + instrument;
+        return "marketPrices." + instrument;
     }
 
     public static string TopicForClientBuyOrder()
     {
-        return "buyOrder";
+        return "clientOrders.buyOrder";
     }
 
     public static string TopicForClientBuyOrderApproved()
     {
-        return "buyOrderApproved";
+        return "clientOrders.buyOrderApproved";
     }
 
     public static string TopicForClientOrderEnded(string clientId)
     {
-        return "buyOrderEnded" + clientId;
+        return "clientOrders.buyOrderEnded" + clientId;
     }
     
     public static string TopicForLoginRequest()
     {
-        return "loginRequested";
+        return "loginRequest.loginRequested";
     }
 
     public static string TopicForLoginResponse()
     {
-        return "loginResponded";
+        return "loginRequest.loginResponded";
     }
 
     public static string TopicForAllClients()
     {
-        return "allClients";
+        return "StreamMisc.allClients";
     }
 
     public static string TopicForAllInstruments()
     {
-        return "allInstruments";
+        return "StreamMisc.allInstruments";
     }
 
     public static string TopicForBookingOrder()
     {
-        return "BookOrder";
+        return "clientOrders.BookOrder";
     }
 
     public static string TopicForHedgingOrder()
     {
-        return "HedgeOrder";
+        return "clientOrders.HedgeOrder";
     }
     public static string TopicForHedgingOrderRequest()
     {
-        return "HedgeOrderRequest";
+        return "clientOrders.HedgeOrderRequest";
     }
     public static string TopicForHedgingOrderResponse()
     {
-        return "HedgeOrderResponse";
+        return "clientOrders.HedgeOrderResponse";
     }
 
     public static string TopicForHoldingOfClient(string clientId)
     {
-        return "holdingOfClient" + clientId;
+        return "StreamDBData.holdingOfClient" + clientId;
     }
 
     public static string TopicForDBDataOfClient(string clientId)
     {
-        return "dbDataOfClient" + clientId;
+        return "StreamDBData.dbDataOfClient" + clientId;
     }
 
     public static string TopicForAllTargetPositions()
     {
-        return "allTargetPositions";
+        return "StreamMisc.allTargetPositions";
     }
 
     public static string TopicForTargetPositionUpdate(string instrumentId)
     {
-        return "targetPositionUpdate" + instrumentId;
+        return "StreamDBData.targetPositionUpdate" + instrumentId;
     }
     
 }

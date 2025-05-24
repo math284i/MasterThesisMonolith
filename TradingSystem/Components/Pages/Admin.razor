@@ -104,7 +104,8 @@
             Price = _developmentPrice
         };
         var stockTopic = TopicGenerator.TopicForMarketInstrumentPrice(stock.InstrumentId);
-        Observable.Publish(stockTopic, stock);
+        //Observable.Publish(stockTopic, stock);
+        await natsClient.PublishAsync(stockTopic, stock);
         var stockTc = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
         await clientStream.PublishAsync(stockTc, stock);
 
@@ -120,7 +121,8 @@
         };
 
         var topic = TopicGenerator.TopicForTargetPositionUpdate(newTarget.InstrumentId);
-        Observable.Publish(topic, newTarget);
+        //Observable.Publish(topic, newTarget);
+        await natsClient.PublishAsync(topic, newTarget);
 
         await ToastService.Success("Success", "New target position added to bus", autoHide: true);
     }

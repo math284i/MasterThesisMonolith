@@ -3,7 +3,10 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Transactions;
+using NATS.Client.JetStream.Models;
+using NATS.Net;
 using TradingSystem.Data;
+using Tier = TradingSystem.Data.Tier;
 
 namespace TradingSystem.Logic;
 
@@ -37,17 +40,39 @@ public class DBHandler : IDBHandler
     private BrokerStocks _brokerStocks;
     private InstrumentsOptions _instrumentsOptions;
     private Lock _readerLock = new();
+    
+    private readonly NatsClient _natsClient;
+    private readonly Dictionary<string, CancellationTokenSource> _subscriptionTokens = new();
+    private readonly List<Task> _subscriptionTasks = new();
 
-    public DBHandler(IObservable messagebus, IOptions<BrokerStocks> brokerStocks, IOptions<InstrumentsOptions> tradingOptions)
+    public DBHandler(IObservable messagebus, IOptions<BrokerStocks> brokerStocks, IOptions<InstrumentsOptions> tradingOptions, NatsClient natsClient)
     {
         _observable = messagebus;
         _brokerStocks = brokerStocks.Value;
         _instrumentsOptions = tradingOptions.Value;
+        _natsClient = natsClient;
     }
 
     public void Start()
     {
         //ResetDB();
+        SetupConsumers();
+    }
+
+    private async void SetupConsumers()
+    {
+        var consumerConfig = new ConsumerConfig
+        {
+            Name = "loginRequestConsumer",
+            DurableName = "loginRequestConsumer",
+            DeliverPolicy = ConsumerConfigDeliverPolicy.All,
+            AckPolicy = ConsumerConfigAckPolicy.Explicit,
+            FilterSubject = TopicGenerator.TopicForLoginRequest()
+        };
+        
+        var stream = "streamLoginRequest";
+        
+        await _natsClient.CreateJetStreamContext().CreateOrUpdateConsumerAsync(stream, consumerConfig);
         SubscribeToLogin();
         PublishAllClients();
         SetupTargetPositions();
@@ -55,28 +80,97 @@ public class DBHandler : IDBHandler
 
     private void SubscribeToLogin()
     {
+        Console.WriteLine("Subscribing to login request");
         var topic = TopicGenerator.TopicForLoginRequest();
-        _observable.Subscribe<LoginInfo>(topic, Id, CheckLogin);
+        //_observable.Subscribe<LoginInfo>(topic, Id, CheckLogin);
+        
+        if (_subscriptionTokens.TryGetValue(topic, out var existingCts))
+        {
+            existingCts.Cancel();
+            _subscriptionTokens.Remove(topic);
+        }
+
+        var cts = new CancellationTokenSource();
+        _subscriptionTokens[topic] = cts;
+        
+        var task = Task.Run(async () =>
+        {
+            try
+            {
+                var consumer = await _natsClient.CreateJetStreamContext()
+                    .GetConsumerAsync("streamLoginRequest", "loginRequestConsumer", cts.Token);
+                await foreach (var msg in consumer.ConsumeAsync<LoginInfo>(cancellationToken: cts.Token))
+                {
+                    //await msg.AckProgressAsync(); TODO figure out time
+                    CheckLogin(msg.Data);
+                    await msg.AckAsync(cancellationToken: cts.Token);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Login request was cancelled or atleast consumer wasn't there");
+            }
+        }, cts.Token);
+        _subscriptionTasks.Add(task);
     }
-    private void PublishAllClients()
+    private async void PublishAllClients()
     {
         var allClients = GetAllClients();
         foreach (var client in allClients)
         {
             var topicClient = TopicGenerator.TopicForDBDataOfClient(client.ClientId.ToString());
             client.Holdings = GetClientHoldings(client.ClientId);
-            _observable.Publish(topicClient, client);
+            //_observable.Publish(topicClient, client);
+            await _natsClient.PublishAsync(topicClient, client);
         }
     }
-    private void SetupTargetPositions()
+    private async void SetupTargetPositions()
     {
         var topicAllTargetPositions = TopicGenerator.TopicForAllTargetPositions();
         var allTargetPositions = GetTargetPositions();
-        foreach (var topicTarget in allTargetPositions.Select(targetPosition => TopicGenerator.TopicForTargetPositionUpdate(targetPosition.InstrumentId)))
+        foreach (var target in allTargetPositions)
         {
-            _observable.Subscribe<TargetPosition>(topicTarget, Id, UpdateTargetPosition);
+            var topic = TopicGenerator.TopicForTargetPositionUpdate(target.InstrumentId);
+            if (_subscriptionTokens.TryGetValue(topic, out var existingCts))
+            {
+                existingCts.Cancel();
+                _subscriptionTokens.Remove(topic);
+            }
+        
+            var cts = new CancellationTokenSource();
+            _subscriptionTokens[topic] = cts;
+            var consumerConfig = new ConsumerConfig
+            {
+                Name = "targetPositionConsumer" + target.InstrumentId,
+                DurableName = "targetPositionConsumer" + target.InstrumentId,
+                DeliverPolicy = ConsumerConfigDeliverPolicy.All,
+                DeliverGroup = "DBHandler",
+                AckPolicy = ConsumerConfigAckPolicy.Explicit,
+                FilterSubject = topic
+            };
+            
+            var stream = "StreamDBData";
+            
+            var consumer = await _natsClient.CreateJetStreamContext().CreateOrUpdateConsumerAsync(stream, consumerConfig, cts.Token);
+            var task = Task.Run(async () =>
+            {
+                try
+                {
+                    await foreach (var natsMsg in consumer.ConsumeAsync<TargetPosition>(cancellationToken: cts.Token))
+                    {
+                        var targetPosition = natsMsg.Data;
+                        if (targetPosition != null)
+                            UpdateTargetPosition(targetPosition);
+                        await natsMsg.AckAsync(cancellationToken: cts.Token);
+                    }
+                }
+                catch (OperationCanceledException) { Console.WriteLine($"Stopped subscription: {topic}"); }
+            }, cts.Token);
+            _subscriptionTasks.Add(task);
+            
         }
-        _observable.Publish(topicAllTargetPositions, allTargetPositions);
+        //_observable.Publish(topicAllTargetPositions, allTargetPositions);
+        await _natsClient.PublishAsync(topicAllTargetPositions, allTargetPositions);
     }
     
     private void UpdateTargetPosition(TargetPosition newTarget)
@@ -96,10 +190,24 @@ public class DBHandler : IDBHandler
         Serialize(db);
     }
 
-    public void Stop()
+    public async void Stop()
     {
         var topic = TopicGenerator.TopicForLoginRequest();
         _observable.Unsubscribe(topic, Id);
+        
+        var keys = _subscriptionTokens.Keys.ToList(); 
+
+        foreach (var key in keys)
+        {
+            if (_subscriptionTokens.TryGetValue(key, out var cts))
+            {
+                await cts.CancelAsync();
+            }
+        }
+
+        _subscriptionTokens.Clear();
+        await Task.WhenAll(_subscriptionTasks);
+
     }
 
     public void AddClient(string name)
@@ -155,7 +263,7 @@ public class DBHandler : IDBHandler
         return;
     }
 
-    public void AddTransaction(TransactionData transaction)
+    public async void AddTransaction(TransactionData transaction)
     {
         DatabaseData db = DeserializeDB();
 
@@ -174,7 +282,8 @@ public class DBHandler : IDBHandler
                 Serialize(db);
                 var topic = TopicGenerator.TopicForDBDataOfClient(buyer.ClientId.ToString());
                 buyer.Holdings = GetClientHoldings(buyer.ClientId);
-                _observable.Publish(topic, buyer);
+                //_observable.Publish(topic, buyer);
+                await _natsClient.PublishAsync(topic, buyer);
             }
             var seller = db.Clients.Find(x => x.ClientId == transaction.SellerId);
             if (seller != null)
@@ -185,7 +294,8 @@ public class DBHandler : IDBHandler
                 Serialize(db);
                 var topic = TopicGenerator.TopicForDBDataOfClient(seller.ClientId.ToString());
                 seller.Holdings = GetClientHoldings(seller.ClientId);
-                _observable.Publish(topic, seller);
+                //_observable.Publish(topic, seller);
+                await _natsClient.PublishAsync(topic, seller);
             }
         }
         Serialize(db);
@@ -300,7 +410,7 @@ public class DBHandler : IDBHandler
         return db.Clients;
     }
 
-    private void CheckLogin(LoginInfo info)
+    private async void CheckLogin(LoginInfo info)
     {
         var db = DeserializeDB();
 
@@ -310,9 +420,12 @@ public class DBHandler : IDBHandler
         var customer = db.Customers.Find(x => x.Username.Equals(username) && x.Password.Equals(hashPassword(password,x.ClientId, db)));
         info.IsAuthenticated = customer != null;
         info.ClientId = customer == null ?  Guid.Empty : customer.ClientId;
+        // info.Username = "-"; //TODO Implement!
+        // info.Password = "-";
 
         var topic = TopicGenerator.TopicForLoginResponse();
-        _observable.Publish(topic, info, isTransient: true);
+        //_observable.Publish(topic, info, isTransient: true);
+        await _natsClient.PublishAsync(topic, info);
         return;
     }
 

@@ -55,6 +55,7 @@ namespace TradingSystem.Logic
 
         public void Publish<T>(string key, T message, bool isTransient = false)
         {
+            Console.WriteLine("Publish has been called in observable with key: " + key);
             if (isTransient)
             {
                 var queue = _transientMessages.GetOrAdd(key, _ => new ConcurrentQueue<object>());

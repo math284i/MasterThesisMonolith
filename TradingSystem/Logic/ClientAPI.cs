@@ -20,6 +20,11 @@ public interface IClient
 
     public void Logout(Action<bool> callback);
     public void StreamPrice(StreamInformation info, Action<Stock> updatePrice, bool isAskPrice = true);
+    
+    public void DestroyClientConsumers(Guid clientId, string clientUsername);
+
+    public void Start();
+    public void Stop();
 }
 
 public class ClientAPI : IClient
@@ -29,102 +34,205 @@ public class ClientAPI : IClient
     private const string Id = "clientAPI";
     private readonly IObservable _observable;
     private readonly ConcurrentDictionary<Guid, ClientData> _clientDatas;
+    private readonly ConcurrentDictionary<string, CancellationTokenSource> _cancellationTokenSources;
+    
     private INatsClient _natsClient;
+    private readonly Dictionary<string, CancellationTokenSource> _subscriptionTokens = new();
+    private readonly List<Task> _subscriptionTasks = new();
 
     public ClientAPI(IObservable observable, NatsClient natsClient)
     {
         _tradingOptions = new HashSet<Stock>();
         _clients = new List<Delegate>();
         _clientDatas = new ConcurrentDictionary<Guid, ClientData>();
+        _cancellationTokenSources = new ConcurrentDictionary<string, CancellationTokenSource>();
         _observable = observable;
         _natsClient = natsClient;
-        var topic = TopicGenerator.TopicForAllInstruments();
-        _observable.Subscribe<HashSet<Stock>>(topic, Id, stockOptions =>
+        
+        SetupConsumers();
+    }
+
+    private async void SetupConsumers()
+    {
+        var consumerConfig = new ConsumerConfig
         {
-            _tradingOptions = stockOptions;
-            foreach (var client in _clients)
-            {
-                client.DynamicInvoke(stockOptions);
-            }
-        });
+            Name = "ClientAPIAllInstrumentsConsumer",
+            DurableName = "ClientAPIAllInstrumentsConsumer",
+            DeliverPolicy = ConsumerConfigDeliverPolicy.All,
+            AckPolicy = ConsumerConfigAckPolicy.Explicit,
+            DeliverGroup = "ClientAPI",
+            FilterSubject = TopicGenerator.TopicForAllInstruments()
+        };
+        
+        var stream = "StreamMisc";
+        
+        await _natsClient.CreateJetStreamContext().CreateOrUpdateConsumerAsync(stream, consumerConfig);
+        Start();
     }
 
     public HashSet<Stock> GetStockOptions<T>(Action<T> client)
     {
         _clients.Add(client);
+        Console.WriteLine("Returning trading options " + _tradingOptions.Count );
         return _tradingOptions;
     }
 
     public async void StreamPrice(StreamInformation info, Action<Stock> updatePrice, bool isAskPrice = true)
     {
         var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(info.InstrumentId);
+        var ctx = _natsClient.CreateJetStreamContext();
+        var type = isAskPrice ? "Ask" : "Bid";
+        var keyName = info.ClientId + info.InstrumentId + type;
+        var durableName = $"clientPrices_{keyName}";
+        var streamName = "StreamClientPrices";
+
         if (info.EnableLivePrices)
         {
-            var type = isAskPrice ? "Ask" : "Bid";
-            var cts = CancellationToken.None;
-            var ctx = _natsClient.CreateJetStreamContext();
-            
-            //TODO All of below might have to be in its own thread.
-            
-            var consumer = await ctx.GetConsumerAsync("StreamPrices", "clientPrices_GME", cts);
-            await foreach (var msg in consumer.ConsumeAsync<Stock>(cancellationToken: cts))
+            if (_cancellationTokenSources.TryRemove(keyName, out var existingCts))
             {
-                await msg.AckAsync(cancellationToken: cts);
-                var order = msg.Data;
-                Console.WriteLine($"Client Received: {order.InstrumentId} with price: {order.Price}");
-                var localStock = (Stock)order.Clone();
-                var clientTier = _clientDatas[info.ClientId].Tier;
-                var (bid, ask) = SpreadCalculator.GetBidAsk(localStock.Price, clientTier);
-                
-                localStock.Price = isAskPrice ? ask : bid;
-                updatePrice.Invoke(localStock);
-                Console.WriteLine($"Client should have updated price isAskPrice {isAskPrice}");
+                await existingCts.CancelAsync();
+                existingCts.Dispose();
+                try { await ctx.DeleteConsumerAsync(streamName, durableName); } catch { }
+                Console.WriteLine($"Restarting stream for {keyName}");
             }
-            // var ctx = _natsClient.CreateJetStreamContext();
-            // var config = new ConsumerConfig
-            // {
-            //     FilterSubjects = [stockTopic],
-            //     DurableName = info.ClientId + stockTopic,
-            //     Name = info.ClientId + stockTopic
-            // };
-            //
-            // var consumer = await ctx.CreateOrUpdateConsumerAsync("StreamPrices", config, cts.Token);
 
-            // _natsClient.SubscribeAsync();
-            
-            // var subscriptionTask = Task.Run(async () =>
-            // {
-            //     await foreach (var msg in _natsClient.SubscribeAsync<Stock>(stockTopic, cancellationToken: cts))
-            //     {
-            //         var order = msg.Data;
-            //         Console.WriteLine($"Subscriber received {msg.Subject}: {order}");
-            //         var localStock = (Stock)order.Clone();
-            //         var clientTier = _clientDatas[info.ClientId].Tier;
-            //         var (bid, ask) = SpreadCalculator.GetBidAsk(localStock.Price, clientTier);
-            //
-            //         localStock.Price = isAskPrice ? ask : bid;
-            //         updatePrice.Invoke(localStock);
-            //     }
-            //
-            //     Console.WriteLine("Unsubscribed");
-            // }, cts);
-            // await subscriptionTask;
-            // var js = _natsClient.CreateJetStreamContext();
-            // var consumer = await js.GetConsumerAsync("StreamPrices", "clientPrices_1234", cts);
-            // await foreach (var msg in consumer.ConsumeAsync<Stock>(cancellationToken: cts))
-            // {
-            //     var data = msg.Data;
-            //     Console.WriteLine($"CLIENT Received: {data}");
-            //     await msg.AckAsync(cancellationToken: cts);
-            // }
+            var cts = new CancellationTokenSource();
+            _cancellationTokenSources.TryAdd(keyName, cts);
+
+            try
+            {
+                var consumerConfig = new ConsumerConfig
+                {
+                    Name = durableName,
+                    DurableName = durableName,
+                    DeliverPolicy = ConsumerConfigDeliverPolicy.Last,
+                    FilterSubject = $"clientPrices.{info.InstrumentId}",
+                    DeliverGroup = "ClientAPI",
+                    AckPolicy = ConsumerConfigAckPolicy.Explicit
+                };
+
+                var consumer = await ctx.CreateOrUpdateConsumerAsync(streamName, consumerConfig, cts.Token);
+
+                await foreach (var msg in consumer.ConsumeAsync<Stock>(cancellationToken: cts.Token))
+                {
+                    await msg.AckAsync(cancellationToken: cts.Token);
+
+                    var localStock = (Stock)msg.Data.Clone();
+                    var tier = _clientDatas[info.ClientId].Tier;
+                    var (bid, ask) = SpreadCalculator.GetBidAsk(localStock.Price, tier);
+                    localStock.Price = isAskPrice ? ask : bid;
+
+                    updatePrice.Invoke(localStock);
+                }
+
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected on unsubscribe
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Stream error: {ex.Message}");
+            }
+            finally
+            {
+                _cancellationTokenSources.TryRemove(keyName, out _);
+                try { await ctx.DeleteConsumerAsync(streamName, durableName, cts.Token); } catch { }
+            }
         }
         else
         {
-            _observable.Unsubscribe(stockTopic, info.ClientId.ToString());
+            if (_cancellationTokenSources.Remove(keyName, out var cts))
+            {
+                await cts.CancelAsync();
+                Console.WriteLine($"Client Cancelled for {keyName}");
+            }
+            else
+            {
+                Console.WriteLine($"No active stream found for {keyName}");
+            }
+
+            try { await ctx.DeleteConsumerAsync(streamName, durableName); } catch { }
         }
     }
 
-    public void HandleOrder(Order order, Action<Order> callback)
+    public async void DestroyClientConsumers(Guid clientId, string clientUsername)
+    {
+        var durableNameDB = clientId + "DBConsumer";
+        var streamDB = "StreamDBData";
+
+        try
+        {
+            await _natsClient.CreateJetStreamContext().DeleteConsumerAsync(streamDB, durableNameDB);
+
+        }
+        catch
+        {
+            Console.WriteLine($"Failed to delete client consumers for {durableNameDB}");
+        }
+    }
+
+    public void Start()
+    {
+        var topic = TopicGenerator.TopicForAllInstruments();
+        // _observable.Subscribe<HashSet<Stock>>(topic, Id, stockOptions =>
+        // {
+        //     _tradingOptions = stockOptions;
+        //     foreach (var client in _clients)
+        //     {
+        //         client.DynamicInvoke(stockOptions);
+        //     }
+        // });
+        
+        if (_subscriptionTokens.TryGetValue(topic, out var existingCts))
+        {
+            existingCts.Cancel();
+            _subscriptionTokens.Remove(topic);
+        }
+
+        var cts = new CancellationTokenSource();
+        _subscriptionTokens[topic] = cts;
+        
+        var task = Task.Run(async () =>
+        {
+            try
+            {
+                var consumer = await _natsClient.CreateJetStreamContext().GetConsumerAsync("StreamMisc", "ClientAPIAllInstrumentsConsumer", cts.Token);
+                await foreach (var msg in consumer.ConsumeAsync<HashSet<Stock>>(cancellationToken: cts.Token))
+                {
+                    //await msg.AckProgressAsync(); TODO figure out time
+                    Console.WriteLine("Client api got All Instruments " + msg.Data.Count);
+                    _tradingOptions = msg.Data;
+                    foreach (var client in _clients)
+                    {
+                        client.DynamicInvoke(msg.Data);
+                    }
+                    await msg.AckAsync(cancellationToken: cts.Token);
+                }
+            }
+            catch (OperationCanceledException) {  }
+        }, cts.Token);
+        _subscriptionTasks.Add(task);
+        
+    }
+
+    public async void Stop()
+    {
+        var keys = _subscriptionTokens.Keys.ToList(); 
+
+        foreach (var key in keys)
+        {
+            if (_subscriptionTokens.TryGetValue(key, out var cts))
+            {
+                await cts.CancelAsync();
+            }
+        }
+
+        _subscriptionTokens.Clear();
+    }
+
+
+    public async void HandleOrder(Order order, Action<Order> callback)
     {
         var localOrder = (Order) order.Clone();
         var topicToPublish = TopicGenerator.TopicForClientBuyOrder();
@@ -147,16 +255,56 @@ public class ClientAPI : IClient
             localOrder.SpreadPrice = localOrder.Stock.Price - priceWithSpread;
         }
         
-        _observable.Subscribe<Order>(topicToSubscribe, Id, ord =>
-        {
-            var ordLocal = (Order) ord.Clone();
-            callback.DynamicInvoke(ordLocal);
-        });
+        // _observable.Subscribe<Order>(topicToSubscribe, Id, ord =>
+        // {
+        //     var ordLocal = (Order) ord.Clone();
+        //     callback.DynamicInvoke(ordLocal);
+        // });
         
-        _observable.Publish(topicToPublish, localOrder, isTransient: true);
+        var consumerConfig = new ConsumerConfig
+        {
+            Name = "buyOrderEndedConsumer",
+            DurableName = "buyOrderEndedConsumer",
+            DeliverGroup = "ClientAPI",
+            DeliverPolicy = ConsumerConfigDeliverPolicy.All,
+            AckPolicy = ConsumerConfigAckPolicy.Explicit,
+            FilterSubject = topicToSubscribe
+        };
+        
+        var stream = "streamOrders";
+        
+        var consumer = await _natsClient.CreateJetStreamContext().CreateOrUpdateConsumerAsync(stream, consumerConfig);
+        if (_subscriptionTokens.TryGetValue(topicToSubscribe, out var existingCts))
+        {
+            existingCts.Cancel();
+            _subscriptionTokens.Remove(topicToSubscribe);
+        }
+        
+        var cts = new CancellationTokenSource();
+        _subscriptionTokens[topicToSubscribe] = cts;
+        
+        var task = Task.Run(async () =>
+        {
+            try
+            {
+                await foreach (var msg in consumer.ConsumeAsync<Order>(cancellationToken: cts.Token))
+                {
+                    //await msg.AckProgressAsync(); TODO figure out time
+                    var ordLocal = (Order) msg.Data.Clone();
+                    callback.DynamicInvoke(ordLocal);
+                    await msg.AckAsync(cancellationToken: cts.Token);
+                }
+            }
+            catch (OperationCanceledException) {  }
+        }, cts.Token);
+        _subscriptionTasks.Add(task);
+        
+        //_observable.Publish(topicToPublish, localOrder, isTransient: true);
+        Console.WriteLine("ClientAPI order sent with: " + order.ClientId);
+        await _natsClient.PublishAsync<Order>(topicToPublish, localOrder);
     }
 
-    public void Login(string username, string password, Action<LoginInfo> callbackLogin, Action<ClientData> callbackClientData)
+    public async void Login(string username, string password, Action<LoginInfo> callbackLogin, Action<ClientData> callbackClientData)
     {
         var requestTopic = TopicGenerator.TopicForLoginRequest();
         var responseTopic = TopicGenerator.TopicForLoginResponse();
@@ -165,20 +313,108 @@ public class ClientAPI : IClient
             Username = username,
             Password = password
         };
-        _observable.Subscribe<LoginInfo>(responseTopic, Id, info =>
+        // _observable.Subscribe<LoginInfo>(responseTopic, Id, info =>
+        // {
+        //     if (info.IsAuthenticated)
+        //     {
+        //         var topic = TopicGenerator.TopicForDBDataOfClient(info.ClientId.ToString());
+        //         _observable.Subscribe<ClientData>(topic, Id, cD =>
+        //         {
+        //             _clientDatas.AddOrUpdate(cD.ClientId, cD, (key, oldValue) => cD);
+        //             callbackClientData.DynamicInvoke(cD);
+        //         });
+        //     }
+        //     callbackLogin?.DynamicInvoke(info);
+        // });
+        
+        var consumerConfig = new ConsumerConfig
         {
-            if (info.IsAuthenticated)
+            Name = "loginRequestEndedConsumer" + username,
+            DurableName = "loginRequestEndedConsumer" + username,
+            DeliverGroup = "ClientAPI" + username,
+            DeliverPolicy = ConsumerConfigDeliverPolicy.All,
+            AckPolicy = ConsumerConfigAckPolicy.Explicit,
+            FilterSubject = responseTopic
+        };
+        
+        var stream = "streamLoginRequest";
+        
+        var consumer = await _natsClient.CreateJetStreamContext().CreateOrUpdateConsumerAsync(stream, consumerConfig);
+        if (_subscriptionTokens.TryGetValue(responseTopic, out var existingCts))
+        {
+            existingCts.Cancel();
+            _subscriptionTokens.Remove(responseTopic);
+        }
+        
+        var cts = new CancellationTokenSource();
+        _subscriptionTokens[responseTopic] = cts;
+        
+        var task = Task.Run(async () =>
+        {
+            try
             {
-                var topic = TopicGenerator.TopicForDBDataOfClient(info.ClientId.ToString());
-                _observable.Subscribe<ClientData>(topic, Id, cD =>
+                await foreach (var msg in consumer.ConsumeAsync<LoginInfo>(cancellationToken: cts.Token))
                 {
-                    _clientDatas.AddOrUpdate(cD.ClientId, cD, (key, oldValue) => cD);
-                    callbackClientData.DynamicInvoke(cD);
-                });
+                    //await msg.AckProgressAsync(); TODO figure out time
+                    info = msg.Data;
+                    if (info.IsAuthenticated)
+                    {
+                        Console.WriteLine($"User {info.Username} logged in");
+                        var topic = TopicGenerator.TopicForDBDataOfClient(info.ClientId.ToString());
+                        var consumerConfig2 = new ConsumerConfig
+                        {
+                            Name = info.ClientId + "DBConsumer",
+                            DurableName = info.ClientId + "DBConsumer",
+                            DeliverGroup = info.ClientId + "DBConsumer",
+                            DeliverPolicy = ConsumerConfigDeliverPolicy.LastPerSubject,
+                            AckPolicy = ConsumerConfigAckPolicy.Explicit,
+                            FilterSubject = topic
+                        };
+        
+                        var stream2 = "StreamDBData";
+        
+                        var consumer2 = await _natsClient.CreateJetStreamContext().CreateOrUpdateConsumerAsync(stream2, consumerConfig2);
+                        if (_subscriptionTokens.TryGetValue(topic, out var existingCtss))
+                        {
+                            existingCtss.Cancel();
+                            _subscriptionTokens.Remove(topic);
+                        }
+        
+                        var ctss = new CancellationTokenSource();
+                        _subscriptionTokens[topic] = ctss;
+                        var task = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await foreach (var msg2 in consumer2.ConsumeAsync<ClientData>(cancellationToken: cts.Token))
+                                {
+                                    Console.WriteLine("Got client data");
+                                    //await msg.AckProgressAsync(); TODO figure out time
+                                    var cD = msg2.Data;
+                                    _clientDatas.AddOrUpdate(cD.ClientId, cD, (key, oldValue) => cD);
+                                    callbackClientData.DynamicInvoke(cD);
+                                    await msg2.AckAsync(cancellationToken: cts.Token);
+                                }
+                            }
+                            catch (OperationCanceledException) {  }
+                        }, cts.Token);
+                        _subscriptionTasks.Add(task);
+                        // _observable.Subscribe<ClientData>(topic, Id, cD =>
+                        // {
+                        //     _clientDatas.AddOrUpdate(cD.ClientId, cD, (key, oldValue) => cD);
+                        //     callbackClientData.DynamicInvoke(cD);
+                        // });
+                    }
+                    callbackLogin?.DynamicInvoke(info);
+                    await msg.AckAsync(cancellationToken: cts.Token);
+                }
             }
-            callbackLogin?.DynamicInvoke(info);
-        });
-        _observable.Publish(requestTopic, info, isTransient: true);
+            catch (OperationCanceledException) {  }
+        }, cts.Token);
+        _subscriptionTasks.Add(task);
+        
+        //_observable.Publish(requestTopic, info, isTransient: true);
+        await _natsClient.PublishAsync(requestTopic, info);
     }
     
 

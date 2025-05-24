@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using NATS.Client.JetStream.Models;
+using NATS.Net;
 using TradingSystem.Components.Pages;
 using TradingSystem.Data;
 
@@ -21,15 +23,63 @@ public class RiskCalculator : IRiskCalculator
     private readonly ConcurrentDictionary<string, TargetPosition> _targetPositions =
         new ConcurrentDictionary<string, TargetPosition>();
     private readonly ILogger<RiskCalculator> _logger;
+    
+    private readonly NatsClient _natsClient;
+    private readonly Dictionary<string, CancellationTokenSource> _subscriptionTokens = new();
+    private readonly List<Task> _subscriptionTasks = new();
 
-    public RiskCalculator(IObservable observable, ILogger<RiskCalculator> logger)
+    public RiskCalculator(IObservable observable, ILogger<RiskCalculator> logger, NatsClient natsClient)
     {
         _observable = observable;
         _logger = logger;
+        _natsClient = natsClient;
     }
     
     public void Start()
     {
+        SetupConsumers();
+    }
+
+    private async void SetupConsumers()
+    {
+        var consumerConfig = new ConsumerConfig
+        {
+            Name = "buyOrderConsumer",
+            DurableName = "buyOrderConsumer",
+            DeliverPolicy = ConsumerConfigDeliverPolicy.All,
+            DeliverGroup = "RiskCalculator",
+            AckPolicy = ConsumerConfigAckPolicy.Explicit,
+            FilterSubject = TopicGenerator.TopicForClientBuyOrder()
+        };
+        
+        var stream = "streamOrders";
+        var allClientsConfig = new ConsumerConfig
+        {
+            Name = "allClientsConsumer",
+            DurableName = "allClientsConsumer",
+            DeliverPolicy = ConsumerConfigDeliverPolicy.All,
+            DeliverGroup = "RiskCalculator",
+            AckPolicy = ConsumerConfigAckPolicy.Explicit,
+            FilterSubject = TopicGenerator.TopicForAllClients()
+        };
+        
+        var streamMisc = "StreamMisc";
+        
+        var allTargetsConfig = new ConsumerConfig
+        {
+            Name = "allTargetPositionsConsumer",
+            DurableName = "allTargetPositionsConsumer",
+            DeliverPolicy = ConsumerConfigDeliverPolicy.All,
+            DeliverGroup = "RiskCalculator",
+            AckPolicy = ConsumerConfigAckPolicy.Explicit,
+            FilterSubject = TopicGenerator.TopicForAllTargetPositions()
+        };
+        
+        
+        await _natsClient.CreateJetStreamContext().CreateOrUpdateConsumerAsync(stream, consumerConfig);
+        await _natsClient.CreateJetStreamContext().CreateOrUpdateConsumerAsync(streamMisc, allClientsConfig);
+        await _natsClient.CreateJetStreamContext().CreateOrUpdateConsumerAsync(streamMisc, allTargetsConfig);
+        
         SubscribeToAllClients();
 
         SubscribeToAllTargets();
@@ -37,47 +87,201 @@ public class RiskCalculator : IRiskCalculator
         SubscribeToBuyOrders();
     }
 
-    private void SubscribeToAllClients()
+    private async void SubscribeToAllClients()
     {
         var topicForClients = TopicGenerator.TopicForAllClients();
 
-        _observable.Subscribe<List<ClientData>>(topicForClients, Id, clients =>
+        // _observable.Subscribe<List<ClientData>>(topicForClients, Id, clients =>
+        // {
+        //     foreach (var client in clients.Where(client => !_clients.Contains(client)))
+        //     {
+        //         _clients.Add(client);
+        //         var topicForClientData = TopicGenerator.TopicForDBDataOfClient(client.ClientId.ToString());
+        //
+        //         _observable.Subscribe<ClientData>(topicForClientData, Id, clientData =>
+        //         {
+        //             _clientDatas.AddOrUpdate(client.ClientId, clientData, (key, oldValue) => clientData);
+        //         });
+        //     }
+        // });
+        
+        if (_subscriptionTokens.TryGetValue(topicForClients, out var existingCts))
         {
-            foreach (var client in clients.Where(client => !_clients.Contains(client)))
+            existingCts.Cancel();
+            _subscriptionTokens.Remove(topicForClients);
+        }
+        
+        var cts = new CancellationTokenSource();
+        _subscriptionTokens[topicForClients] = cts;
+        
+        var task = Task.Run(async () =>
+        {
+            try
             {
-                _clients.Add(client);
-                var topicForClientData = TopicGenerator.TopicForDBDataOfClient(client.ClientId.ToString());
-
-                _observable.Subscribe<ClientData>(topicForClientData, Id, clientData =>
+                var consumer = await _natsClient.CreateJetStreamContext().GetConsumerAsync("StreamMisc", "allClientsConsumer", cts.Token);
+                await foreach (var msg in  consumer.ConsumeAsync<List<ClientData>>(cancellationToken: cts.Token))
                 {
-                    _clientDatas.AddOrUpdate(client.ClientId, clientData, (key, oldValue) => clientData);
-                });
+                    var clients = msg.Data;
+                    foreach (var client in clients.Where(client => !_clients.Contains(client)))
+                    {
+                        _clients.Add(client);
+                        var topicForClientData = TopicGenerator.TopicForDBDataOfClient(client.ClientId.ToString());
+                        if (_subscriptionTokens.TryGetValue(topicForClientData, out var existingCtss))
+                        {
+                            await existingCtss.CancelAsync();
+                            _subscriptionTokens.Remove(topicForClientData);
+                        }
+        
+                        var ctss = new CancellationTokenSource();
+                        _subscriptionTokens[topicForClientData] = ctss;
+                        
+                        var clientDataConfig = new ConsumerConfig
+                        {
+                            Name = "clientDataConsumer" + client.ClientId.ToString(),
+                            DurableName = "clientDataConsumer" + client.ClientId.ToString(),
+                            DeliverPolicy = ConsumerConfigDeliverPolicy.All,
+                            DeliverGroup = "RiskCalculator",
+                            AckPolicy = ConsumerConfigAckPolicy.Explicit,
+                            FilterSubject = topicForClientData
+                        };
+        
+                        var stream = "StreamDBData";
+                        var consumerCD = await _natsClient.CreateJetStreamContext().CreateOrUpdateConsumerAsync(stream, clientDataConfig);
+                        
+                        var task = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await foreach (var natsMsg in consumerCD.ConsumeAsync<ClientData>(cancellationToken: ctss.Token))
+                                {
+                                    var clientData = natsMsg.Data;
+                                    if (clientData != null)
+                                        _clientDatas.AddOrUpdate(client.ClientId, clientData,
+                                            (key, oldValue) => clientData);
+                                    await natsMsg.AckAsync(cancellationToken: ctss.Token);
+                                }
+                            }
+                            catch (OperationCanceledException) { Console.WriteLine($"Stopped subscription: {topicForClientData}"); }
+                        }, ctss.Token);
+                        _subscriptionTasks.Add(task);
+                    }
+
+                    await msg.AckAsync(cancellationToken: cts.Token);
+                }
             }
-        });
+            catch (OperationCanceledException) { Console.WriteLine($"Stopped subscription: {topicForClients}"); }
+        }, cts.Token);
+        
+        _subscriptionTasks.Add(task);
     }
     private void SubscribeToAllTargets()
     {
         var topicAllTargets = TopicGenerator.TopicForAllTargetPositions();
-        _observable.Subscribe<List<TargetPosition>>(topicAllTargets, Id, targets =>
+        
+        if (_subscriptionTokens.TryGetValue(topicAllTargets, out var existingCts))
         {
-            foreach (var target in targets.Where(target => !_targetPositions.ContainsKey(target.InstrumentId)))
+            existingCts.Cancel();
+            _subscriptionTokens.Remove(topicAllTargets);
+        }
+        
+        var cts = new CancellationTokenSource();
+        _subscriptionTokens[topicAllTargets] = cts;
+        
+        var task = Task.Run(async () =>
+        {
+            try
             {
-                _targetPositions.AddOrUpdate(target.InstrumentId, target, (key, oldValue) => target);
-                var topicForTarget = TopicGenerator.TopicForTargetPositionUpdate(target.InstrumentId);
-                _observable.Subscribe<TargetPosition>(topicForTarget, Id, targetPosition =>
+                var consumer = await _natsClient.CreateJetStreamContext().GetConsumerAsync("StreamMisc", "allTargetPositionsConsumer", cts.Token);
+                await foreach (var msg in  consumer.ConsumeAsync<List<TargetPosition>>(cancellationToken: cts.Token))
                 {
-                    _targetPositions.AddOrUpdate(targetPosition.InstrumentId, targetPosition, (key, oldValue) => targetPosition);
-                });
+                    var targets = msg.Data;
+                    if (targets != null)
+                    {
+                        foreach (var target in targets.Where(target =>
+                                     !_targetPositions.ContainsKey(target.InstrumentId)))
+                        {
+                            _targetPositions.AddOrUpdate(target.InstrumentId, target, (key, oldValue) => target);
+                            var topicForTarget = TopicGenerator.TopicForTargetPositionUpdate(target.InstrumentId);
+
+                            var ctss = new CancellationTokenSource();
+                            _subscriptionTokens[topicForTarget] = ctss;
+
+                            var clientDataConfig = new ConsumerConfig
+                            {
+                                Name = "targetDataConsumer" + target.InstrumentId,
+                                DurableName = "targetDataConsumer" + target.InstrumentId,
+                                DeliverPolicy = ConsumerConfigDeliverPolicy.All,
+                                DeliverGroup = "RiskCalculator",
+                                AckPolicy = ConsumerConfigAckPolicy.Explicit,
+                                FilterSubject = topicForTarget
+                            };
+
+                            var stream = "StreamDBData";
+                            var consumerCD = await _natsClient.CreateJetStreamContext()
+                                .CreateOrUpdateConsumerAsync(stream, clientDataConfig, ctss.Token);
+
+                            var task = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    await foreach (var natsMsg in consumerCD.ConsumeAsync<TargetPosition>(
+                                                       cancellationToken: ctss.Token))
+                                    {
+                                        var targetPosition = natsMsg.Data;
+                                        if (targetPosition != null)
+                                            _targetPositions.AddOrUpdate(targetPosition.InstrumentId, targetPosition,
+                                                (key, oldValue) => targetPosition);
+                                        await natsMsg.AckAsync(cancellationToken: ctss.Token);
+                                    }
+                                }
+                                catch (OperationCanceledException)
+                                {
+                                    Console.WriteLine($"Stopped subscription: {topicForTarget}");
+                                }
+                            }, ctss.Token);
+                            _subscriptionTasks.Add(task);
+                        }
+                        await msg.AckAsync(cancellationToken: cts.Token);
+                    }
+                }
             }
-        });
+            catch (OperationCanceledException) { Console.WriteLine($"Stopped subscription: {topicAllTargets}"); }
+        }, cts.Token);
+        
+        _subscriptionTasks.Add(task);
     }
     private void SubscribeToBuyOrders()
     {
         var topic = TopicGenerator.TopicForClientBuyOrder();
-        _observable.Subscribe<Order>(topic, Id, CheckOrder);
+        //_observable.Subscribe<Order>(topic, Id, CheckOrder);
+        
+        if (_subscriptionTokens.TryGetValue(topic, out var existingCts))
+        {
+            existingCts.Cancel();
+            _subscriptionTokens.Remove(topic);
+        }
+
+        var cts = new CancellationTokenSource();
+        _subscriptionTokens[topic] = cts;
+        
+        var task = Task.Run(async () =>
+        {
+            try
+            {
+                var consumer = await _natsClient.CreateJetStreamContext().GetConsumerAsync("streamOrders", "buyOrderConsumer", cts.Token);
+                await foreach (var msg in consumer.ConsumeAsync<Order>(cancellationToken: cts.Token))
+                {
+                    //await msg.AckProgressAsync(); TODO figure out time
+                    CheckOrder(msg.Data);
+                    await msg.AckAsync(cancellationToken: cts.Token);
+                }
+            }
+            catch (OperationCanceledException) {  }
+        }, cts.Token);
+        _subscriptionTasks.Add(task);
     }
 
-    private void CheckOrder(Order order)
+    private async void CheckOrder(Order order)
     {
         _clientDatas.TryGetValue(order.ClientId, out var clientData);
         if (clientData == null)
@@ -97,7 +301,8 @@ public class RiskCalculator : IRiskCalculator
             {
                 _logger.LogInformation("RiskCalculator accepting order");
                 var topic = TopicGenerator.TopicForClientBuyOrderApproved();
-                _observable.Publish(topic, order, isTransient: true);
+                //_observable.Publish(topic, order, isTransient: true);
+                await _natsClient.PublishAsync(topic, order);
             }
             else
             {
@@ -105,7 +310,8 @@ public class RiskCalculator : IRiskCalculator
                 var topic = TopicGenerator.TopicForClientOrderEnded(order.ClientId.ToString());
                 order.Status = OrderStatus.Rejected;
                 order.ErrorMesssage = "Insufficient Funds";
-                _observable.Publish(topic, order, isTransient: true);
+                //_observable.Publish(topic, order, isTransient: true);
+                await _natsClient.PublishAsync(topic, order);
             }
         }
         else
@@ -119,7 +325,8 @@ public class RiskCalculator : IRiskCalculator
                 topic = TopicGenerator.TopicForClientOrderEnded(order.ClientId.ToString());
                 order.Status = OrderStatus.Rejected;
                 order.ErrorMesssage = "Spread is too big";
-                _observable.Publish(topic, order, isTransient: true);
+                //_observable.Publish(topic, order, isTransient: true);
+                await _natsClient.PublishAsync(topic, order);
                 return;
             }
             
@@ -142,7 +349,8 @@ public class RiskCalculator : IRiskCalculator
                 order.Status = OrderStatus.Rejected;
                 order.ErrorMesssage = $"Client doesn't own any stock of {order.Stock.InstrumentId}";
             }
-            _observable.Publish(topic, order, isTransient: true);
+            //_observable.Publish(topic, order, isTransient: true);
+            await _natsClient.PublishAsync(topic, order);
         }
     }
 
@@ -153,7 +361,7 @@ public class RiskCalculator : IRiskCalculator
         var danskeData = _clientDatas[danskeBank.ClientId];
         var danskeStock = danskeData.Holdings.Find(h => h.InstrumentId == order.Stock.InstrumentId);
         if (danskeStock == null) return true;
-        var targetPosition = _targetPositions[order.Stock.InstrumentId];
+        var targetPosition = _targetPositions[order.Stock.InstrumentId]; //Should be a check if we have the key in the list.
         var shouldWeHedge = targetPosition.Type switch
         {
             TargetType.FOK => ShouldWeHedgeFOK(order, targetPosition, danskeStock),
@@ -181,7 +389,7 @@ public class RiskCalculator : IRiskCalculator
         }
     }
 
-    public void Stop()
+    public async void Stop()
     {
         var topic = TopicGenerator.TopicForClientBuyOrder();
         _observable.Unsubscribe(topic, Id);
@@ -196,5 +404,19 @@ public class RiskCalculator : IRiskCalculator
         }
         _clients = new List<ClientData>();
         _clientDatas = new ConcurrentDictionary<Guid, ClientData>();
+        
+        var keys = _subscriptionTokens.Keys.ToList(); 
+
+        foreach (var key in keys)
+        {
+            if (_subscriptionTokens.TryGetValue(key, out var cts))
+            {
+                await cts.CancelAsync();
+            }
+        }
+
+        _subscriptionTokens.Clear();
+        await Task.WhenAll(_subscriptionTasks);
+
     }
 }

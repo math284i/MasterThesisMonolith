@@ -36,13 +36,15 @@ public class Logic : IHostedService
         _book = book;
     }
     
-    public Task StartAsync(CancellationToken cancellationToken)
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
         _logger.ServiceStartingUp();
         
+        await SetupJetStream();
+        
+        _pricerEngine.Start();
         _dbHandler.Start();
         _book.Start();
-        _pricerEngine.Start();
         _marketDataGateway.Start();
         _hedgeService.Start();
         _executionHandler.Start();
@@ -53,7 +55,7 @@ public class Logic : IHostedService
         //PlayWithNats();
         //NatsConsumerExample();
         
-        return Task.CompletedTask;
+        //return Task.CompletedTask;
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
@@ -71,6 +73,81 @@ public class Logic : IHostedService
         _logger.ServiceStopped();
         
         return Task.CompletedTask;
+    }
+    
+    private async Task SetupJetStream()
+    {
+        var url = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://127.0.0.1:4222";
+
+
+        await using var nc = new NatsClient(url);
+        var clientPricesStream = nc.CreateJetStreamContext();
+        var streamConfig = new StreamConfig
+        {
+            Name = "StreamClientPrices",
+            Subjects = ["clientPrices.*"],
+            Description = "This is where client prices will be streamed",
+            AllowDirect = true,
+            MaxConsumers = -1,
+            MaxMsgsPerSubject = 1
+        };
+
+        var orderConfig = new StreamConfig
+        {
+            Name = "streamOrders",
+            Subjects = ["clientOrders.*"],
+            Description = "This is where client orders will be streamed",
+            AllowDirect = true,
+        };
+        
+        var marketConfig = new StreamConfig
+        {
+            Name = "StreamMarketPrices",
+            Subjects = ["marketPrices.*"],
+            Description = "This is where market prices will be streamed",
+            AllowDirect = true,
+            MaxConsumers = -1,
+            MaxMsgsPerSubject = 1
+        };
+        
+        // TODO Stream for DBData
+        var dbConfig = new StreamConfig
+        {
+            Name = "StreamDBData",
+            Subjects = ["StreamDBData.*"],
+            Description = "Here you will find most of our DB data that is used throughout the system, be careful who has access to this",
+            AllowDirect = true,
+            MaxConsumers = -1,
+            MaxMsgsPerSubject = 1
+        };
+        
+        // TODO Stream for AllData
+        // streamMISC
+        var miscConfig = new StreamConfig
+        {
+            Name = "StreamMisc",
+            Subjects = ["StreamMisc.*"],
+            Description = "This is a stream for random persistent data that is needed by multiple services",
+            AllowDirect = true,
+            MaxConsumers = -1,
+            MaxMsgsPerSubject = 1
+        };
+        
+        var loginConfig = new StreamConfig
+        {
+            Name = "streamLoginRequest",
+            Subjects = ["loginRequest.*"],
+            Description = "This is where login requests will be streamed",
+            AllowDirect = true,
+        };
+        
+        // Create stream
+        await clientPricesStream.CreateOrUpdateStreamAsync(streamConfig);
+        await clientPricesStream.CreateOrUpdateStreamAsync(orderConfig);
+        await clientPricesStream.CreateOrUpdateStreamAsync(marketConfig);
+        await clientPricesStream.CreateOrUpdateStreamAsync(miscConfig);
+        await clientPricesStream.CreateOrUpdateStreamAsync(dbConfig);
+        await clientPricesStream.CreateOrUpdateStreamAsync(loginConfig);
     }
 
     private async void NatsConsumerExample()
@@ -148,17 +225,17 @@ public class Logic : IHostedService
         await jetStream.PublishAsync(subject, stock);
         Console.WriteLine("Waiting for messages...");
         var cts = new CancellationTokenSource();
-        // var subscriptionTask = Task.Run(async () =>
-        // {
-        //     await foreach (var msg in nc.SubscribeAsync<Order>("orders.>", cancellationToken: cts.Token))
-        //     {
-        //         var order = msg.Data;
-        //         Console.WriteLine($"Subscriber received {msg.Subject}: {order}");
-        //     }
-        //
-        //
-        //     Console.WriteLine("Unsubscribed");
-        // });
+        var subscriptionTask = Task.Run(async () =>
+        {
+            await foreach (var msg in nc.SubscribeAsync<Order>("orders.>", cancellationToken: cts.Token))
+            {
+                var order = msg.Data;
+                Console.WriteLine($"Subscriber received {msg.Subject}: {order}");
+            }
+        
+        
+            Console.WriteLine("Unsubscribed");
+        });
 
 
         await Task.Delay(1000);
