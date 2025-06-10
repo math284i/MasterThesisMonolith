@@ -83,6 +83,7 @@ public class ExecutionHandler : IExecutionHandler
             Size = order.Stock.Size,
             Price = order.Stock.Price,
             SpreadPrice = order.SpreadPrice,
+            DateMaturity = order.Stock.DateMaturity
         };
 
         if (order.Side == OrderSide.RightSided)

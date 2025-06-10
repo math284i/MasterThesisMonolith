@@ -83,9 +83,11 @@ public class PricerEngine : IPricerEngine
     public void UpdatePrice(Stock stock)
     {
         _logger.PricerEngineReceivedNewPrice(stock.InstrumentId, stock.Price);
+        stock.DateMaturity = DateTime.Today.AddYears(10);
         foreach (var reference in _referencePrices.Where(reference => reference.InstrumentId == stock.InstrumentId))
         {
             reference.Price = stock.Price;
+            reference.DateMaturity = stock.DateMaturity;
         }
         var stockTopic = TopicGenerator.TopicForClientInstrumentPrice(stock.InstrumentId);
         _observable.Publish(stockTopic, stock);

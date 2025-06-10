@@ -205,7 +205,8 @@ public class DBHandler : IDBHandler
             {
                 ClientId = trans.BuyerId,
                 InstrumentId = trans.InstrumentId,
-                Size = trans.Size
+                Size = trans.Size,
+                DateMaturity = trans.DateMaturity
             };
             db.Holdings.Add(newHolding);
         }
@@ -222,7 +223,8 @@ public class DBHandler : IDBHandler
             {
                 ClientId = trans.SellerId,
                 InstrumentId = trans.InstrumentId,
-                Size = -trans.Size
+                Size = -trans.Size,
+                DateMaturity = trans.DateMaturity
             };
             if(newHolding.Size > 0)
             {

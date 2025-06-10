@@ -6,6 +6,8 @@
         public Guid BuyerId { get; set; }
         public Guid SellerId { get; set; }
         public string InstrumentId { get; set; }
+        
+        public DateTime DateMaturity { get; set; }
         public int Size { get; set; }
         public decimal Price { get; set; }
         public decimal SpreadPrice { get; set; }
